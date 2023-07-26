@@ -1,0 +1,13 @@
+.rect-node {
+  height: 100px;
+  border: 1px solid #eee;
+  padding: 5px;
+  border-radius: 5px;
+  background: white;
+}
+
+.rect-node label {
+  display: inline;
+  color: #777;
+  font-size: 12px;
+}

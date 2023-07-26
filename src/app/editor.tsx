@@ -2,30 +2,37 @@
 
 import {
   Editor as EditorType,
+  GeoShapeUtil,
+  GroupShapeUtil,
   TLEventMapHandler,
   TLUiEventHandler,
   Tldraw,
 } from "@tldraw/tldraw";
+import {} from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import ReactFlow from "reactflow";
+import ReactFlow, {
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
+} from "reactflow";
 import "reactflow/dist/style.css";
-
-const initialNodes = [
-  { id: "1", position: { x: 0, y: 0 }, data: { label: "1" } },
-  { id: "2", position: { x: 0, y: 100 }, data: { label: "2" } },
-];
-const initialEdges = [{ id: "e1-2", source: "1", target: "2" }];
+import { RectNode } from "./rectNode";
 
 export default function Editor() {
+  const [editor, setEditor] = useState<EditorType>();
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  const nodeTypes = useMemo(() => ({ rectNode: RectNode }), []);
+
   const [uiEvents, setUiEvents] = useState<string[]>([]);
 
   const handleUiEvent = useCallback<TLUiEventHandler>((name, data) => {
     setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
   }, []);
-
-  const [editor, setEditor] = useState<EditorType>();
 
   const setAppToState = useCallback((editor: EditorType) => {
     setEditor(editor);
@@ -46,7 +53,85 @@ export default function Editor() {
         // Added
         for (const record of Object.values(change.changes.added)) {
           if (record.typeName === "shape") {
-            logChangeEvent(`created shape (${record.type})`);
+            logChangeEvent(
+              `created shape (${record.type}) ${JSON.stringify(record)}`
+            );
+            if (editor.isShapeOfType(record, GeoShapeUtil)) {
+              if (record.props.geo === "rectangle") {
+                setNodes((nodes) =>
+                  nodes.concat({
+                    id: record.id,
+                    type: "rectNode",
+                    position: { x: record.x, y: record.y },
+                    data: { x: record.x, y: record.y },
+                  })
+                );
+              } else {
+                setNodes((nodes) =>
+                  nodes.concat({
+                    id: record.id,
+                    position: { x: record.x, y: record.y },
+                    data: { label: record.props.geo },
+                  })
+                );
+              }
+            } else if (editor.isShapeOfType(record, GroupShapeUtil)) {
+              const position = {
+                x: record.x + 30,
+                y: record.y - 30,
+              };
+              setNodes((nodes) => [
+                {
+                  id: record.id,
+                  position,
+                  data: { label: record.type },
+                  style: {
+                    backgroundColor: "rgba(255, 0, 255, 0.2)",
+                    height: 150,
+                    width: 270,
+                  },
+                },
+                ...nodes,
+              ]);
+
+              const childIds = editor
+                .getSortedChildIds(record.id)
+                .filter((id) => typeof id === "string") as string[];
+
+              setNodes((nodes) =>
+                nodes.map((node) => {
+                  if (childIds.includes(node.id)) {
+                    return {
+                      ...node,
+                      position: {
+                        x: node.position.x - position.x,
+                        y: node.position.y - position.y,
+                      },
+                      parentNode: record.id,
+                    };
+                  }
+                  return node;
+                })
+              );
+
+              // setEdges((edges) =>
+              //   edges.concat(
+              //     editor.getSortedChildIds(record.id).map((childId, i) => ({
+              //       id: `e${i}-${record.id}`,
+              //       source: record.id,
+              //       target: childId,
+              //     }))
+              //   )
+              // );
+            } else {
+              setNodes((nodes) =>
+                nodes.concat({
+                  id: record.id,
+                  position: { x: record.x, y: record.y },
+                  data: { label: record.type },
+                })
+              );
+            }
           }
         }
 
@@ -61,6 +146,13 @@ export default function Editor() {
               `changed page (${from.currentPageId}, ${to.currentPageId})`
             );
           }
+          // if (from.typeName === "shape" && to.typeName === "shape") {
+          //   logChangeEvent(
+          //     `updated shape (${from.type}, ${to.type}) ${JSON.stringify(
+          //       from
+          //     )} ${JSON.stringify(to)}`
+          //   );
+          // }
         }
 
         // Removed
@@ -77,7 +169,7 @@ export default function Editor() {
     return () => {
       editor.off("change", handleChangeEvent);
     };
-  }, [editor]);
+  }, [editor, setNodes]);
 
   return (
     <div style={{ display: "flex" }}>
@@ -113,7 +205,15 @@ export default function Editor() {
             ))}
           </div>
           <div style={{ width: "100vw", height: "100vh" }}>
-            <ReactFlow nodes={initialNodes} edges={initialEdges} />
+            <ReactFlowProvider>
+              <ReactFlow
+                nodeTypes={nodeTypes}
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+              />
+            </ReactFlowProvider>
           </div>
         </div>
       </div>
