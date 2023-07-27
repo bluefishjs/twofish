@@ -7,6 +7,7 @@ import {
   TLEventMapHandler,
   TLUiEventHandler,
   Tldraw,
+  uniqueId,
 } from "@tldraw/tldraw";
 import {} from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
@@ -19,6 +20,38 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { RectNode } from "./rectNode";
+import { AlignNode } from "./alignNode";
+import { StackNode } from "./stackNode";
+
+function getBBox(
+  childNodeBBoxes: { x: number; y: number; width: number; height: number }[]
+) {
+  console.log(childNodeBBoxes);
+
+  const x = Math.min(...childNodeBBoxes.map((b) => b.x));
+  const y = Math.min(...childNodeBBoxes.map((b) => b.y));
+
+  const x2 = Math.max(...childNodeBBoxes.map((b) => b.x + b.width));
+  const y2 = Math.max(...childNodeBBoxes.map((b) => b.y + b.height));
+
+  console.log({
+    x,
+    y,
+    x2,
+    y2,
+    width: x2 - x,
+    height: y2 - y,
+  });
+
+  const childBBox = {
+    x,
+    y,
+    width: x2 - x,
+    height: y2 - y,
+  };
+
+  return childBBox;
+}
 
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
@@ -26,13 +59,113 @@ export default function Editor() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  const nodeTypes = useMemo(() => ({ rectNode: RectNode }), []);
+  const nodeTypes = useMemo(
+    () => ({ rectNode: RectNode, alignNode: AlignNode, stackNode: StackNode }),
+    []
+  );
 
   const [uiEvents, setUiEvents] = useState<string[]>([]);
 
-  const handleUiEvent = useCallback<TLUiEventHandler>((name, data) => {
-    setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
-  }, []);
+  const handleUiEvent = useCallback<TLUiEventHandler>(
+    (name, data) => {
+      setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
+
+      const uid = uniqueId();
+
+      if (name === "align-shapes") {
+        setNodes((nodes) => {
+          setEdges((edges) =>
+            edges.concat([
+              {
+                id: `e0-${uid}`,
+                target: uid,
+                source: nodes[0].id,
+              },
+              {
+                id: `e1-${uid}`,
+                target: uid,
+                source: nodes[1].id,
+              },
+              {
+                id: `e2-${uid}`,
+                target: uid,
+                source: nodes[2].id,
+              },
+            ])
+          );
+
+          const removedPositions = nodes.map((node, i) => {
+            if (i > 2) return node;
+
+            if (
+              (data as any).operation === "left" ||
+              (data as any).operation === "center-horizontally" ||
+              (data as any).operation === "right"
+            ) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  x: undefined,
+                },
+              };
+            } else {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  y: undefined,
+                },
+              };
+            }
+          });
+
+          return removedPositions.concat({
+            id: uid,
+            type: "alignNode",
+            position: { x: 300, y: 150 },
+            style: {
+              width: 100,
+            },
+            data: { alignment: (data as any).operation },
+          });
+        });
+      } else if (name === "stack-shapes") {
+        setNodes((nodes) => {
+          setEdges((edges) =>
+            edges.concat([
+              {
+                id: `e0-${uid}`,
+                target: uid,
+                source: nodes[0].id,
+              },
+              {
+                id: `e1-${uid}`,
+                target: uid,
+                source: nodes[1].id,
+              },
+              {
+                id: `e2-${uid}`,
+                target: uid,
+                source: nodes[2].id,
+              },
+            ])
+          );
+
+          return nodes.concat({
+            id: uid,
+            type: "stackNode",
+            position: { x: 400, y: 150 },
+            style: {
+              width: 100,
+            },
+            data: { direction: (data as any).operation },
+          });
+        });
+      }
+    },
+    [setEdges, setNodes]
+  );
 
   const setAppToState = useCallback((editor: EditorType) => {
     setEditor(editor);
@@ -63,6 +196,10 @@ export default function Editor() {
                     id: record.id,
                     type: "rectNode",
                     position: { x: record.x, y: record.y },
+                    style: {
+                      width: 100,
+                      height: 100,
+                    },
                     data: { x: record.x, y: record.y },
                   })
                 );
@@ -76,36 +213,59 @@ export default function Editor() {
                 );
               }
             } else if (editor.isShapeOfType(record, GroupShapeUtil)) {
-              const position = {
-                x: record.x + 30,
-                y: record.y - 30,
-              };
-              setNodes((nodes) => [
-                {
-                  id: record.id,
-                  position,
-                  data: { label: record.type },
-                  style: {
-                    backgroundColor: "rgba(255, 0, 255, 0.2)",
-                    height: 150,
-                    width: 270,
-                  },
-                },
-                ...nodes,
-              ]);
-
               const childIds = editor
                 .getSortedChildIds(record.id)
                 .filter((id) => typeof id === "string") as string[];
 
+              setNodes((nodes) => {
+                const childNodes = nodes.filter((node) =>
+                  childIds.includes(node.id)
+                );
+                const childNodeBBoxes = childNodes.map((node) => {
+                  const { width, height } = node.style as {
+                    width: number;
+                    height: number;
+                  };
+                  return {
+                    x: node.position.x,
+                    y: node.position.y,
+                    width,
+                    height,
+                  };
+                });
+                const bbox = getBBox(childNodeBBoxes);
+                const position = {
+                  x: bbox.x - 5,
+                  y: bbox.y - 5,
+                };
+
+                return [
+                  {
+                    id: record.id,
+                    position,
+                    data: { label: record.type },
+                    style: {
+                      backgroundColor: "rgba(255, 0, 255, 0.2)",
+                      width: bbox.width + 10,
+                      height: bbox.height + 10,
+                    },
+                  },
+                  ...nodes,
+                ];
+              });
+
               setNodes((nodes) =>
                 nodes.map((node) => {
+                  const parentPosition = nodes.find(
+                    (n) => n.id === record.id
+                  )!.position;
+
                   if (childIds.includes(node.id)) {
                     return {
                       ...node,
                       position: {
-                        x: node.position.x - position.x,
-                        y: node.position.y - position.y,
+                        x: node.position.x - parentPosition.x,
+                        y: node.position.y - parentPosition.y,
                       },
                       parentNode: record.id,
                     };
@@ -192,7 +352,7 @@ export default function Editor() {
             overflow: "auto",
           }}
         >
-          <div>
+          {/* <div>
             <b>UI Events</b>
             {uiEvents.map((t, i) => (
               <div key={i}>{t}</div>
@@ -203,7 +363,7 @@ export default function Editor() {
             {storeEvents.map((t, i) => (
               <div key={i}>{t}</div>
             ))}
-          </div>
+          </div> */}
           <div style={{ width: "100vw", height: "100vh" }}>
             <ReactFlowProvider>
               <ReactFlow
