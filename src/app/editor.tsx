@@ -76,27 +76,17 @@ export default function Editor() {
       if (name === "align-shapes") {
         setNodes((nodes) => {
           setEdges((edges) =>
-            edges.concat([
-              {
-                id: `e0-${uid}`,
+            edges.concat(
+              (data as any).ids.map((id: string, i: number) => ({
+                id: `e${i}-${uid}`,
                 target: uid,
-                source: nodes[0].id,
-              },
-              {
-                id: `e1-${uid}`,
-                target: uid,
-                source: nodes[1].id,
-              },
-              {
-                id: `e2-${uid}`,
-                target: uid,
-                source: nodes[2].id,
-              },
-            ])
+                source: id,
+              }))
+            )
           );
 
-          const removedPositions = nodes.map((node, i) => {
-            if (i > 2) return node;
+          const removedPositions = nodes.map((node) => {
+            if (!(data as any).ids.includes(node.id)) return node;
 
             if (
               (data as any).operation === "left" ||
@@ -255,12 +245,11 @@ export default function Editor() {
                 ];
               });
 
-              setNodes((nodes) =>
-                nodes.map((node) => {
-                  const parentPosition = nodes.find(
-                    (n) => n.id === record.id
-                  )!.position;
-
+              setNodes((nodes) => {
+                const parentPosition = nodes.find(
+                  (n) => n.id === record.id
+                )!.position;
+                return nodes.map((node) => {
                   if (childIds.includes(node.id)) {
                     return {
                       ...node,
@@ -272,8 +261,8 @@ export default function Editor() {
                     };
                   }
                   return node;
-                })
-              );
+                });
+              });
 
               // setEdges((edges) =>
               //   edges.concat(
@@ -320,6 +309,29 @@ export default function Editor() {
         for (const record of Object.values(change.changes.removed)) {
           if (record.typeName === "shape") {
             logChangeEvent(`deleted shape (${record.type})`);
+            if (record.type === "group") {
+              // filter out parent id if node is a group
+              setNodes((nodes) => {
+                const parentPosition = nodes.find(
+                  (n) => n.id === record.id
+                )!.position;
+
+                return nodes.map((node) => {
+                  if (node.parentNode === record.id) {
+                    return {
+                      ...node,
+                      position: {
+                        x: node.position.x + parentPosition.x,
+                        y: node.position.y + parentPosition.y,
+                      },
+                      parentNode: undefined,
+                    };
+                  }
+                  return node;
+                });
+              });
+            }
+            setNodes((nodes) => nodes.filter((node) => node.id !== record.id));
           }
         }
       }
