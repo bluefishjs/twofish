@@ -22,6 +22,7 @@ import "reactflow/dist/style.css";
 import { RectNode } from "./rectNode";
 import { AlignNode } from "./alignNode";
 import { StackNode } from "./stackNode";
+import { overrides } from "./overrides";
 
 function getBBox(
   childNodeBBoxes: { x: number; y: number; width: number; height: number }[]
@@ -334,7 +335,12 @@ export default function Editor() {
   return (
     <div style={{ display: "flex" }}>
       <div style={{ width: "60vw", height: "100vh" }}>
-        <Tldraw autoFocus onUiEvent={handleUiEvent} onMount={setAppToState} />
+        <Tldraw
+          autoFocus
+          onUiEvent={handleUiEvent}
+          onMount={setAppToState}
+          overrides={overrides}
+        />
       </div>
       <div>
         <div
@@ -352,7 +358,7 @@ export default function Editor() {
             overflow: "auto",
           }}
         >
-          {/* <div>
+          <div>
             <b>UI Events</b>
             {uiEvents.map((t, i) => (
               <div key={i}>{t}</div>
@@ -363,7 +369,7 @@ export default function Editor() {
             {storeEvents.map((t, i) => (
               <div key={i}>{t}</div>
             ))}
-          </div> */}
+          </div>
           <div style={{ width: "100vw", height: "100vh" }}>
             <ReactFlowProvider>
               <ReactFlow
