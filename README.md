@@ -1,34 +1,49 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Twofish
+
+A bidirectional manipulation editor for diagramming.
+
+## Target Audience
+
+Scientists, engineers, and science communicators who want to make *illustrated explanatory
+diagrams*.
+
+Examples include
+- freelance illustrators for Scientific American
+- computer scientists in systems and theory
+- designers at the Pattern Lab
+
+## Problem Statement
+
+Illustrated explanatory diagrams rely heavily on Gestalt relations to convey information. While many
+direct manipulation editors (e.g. Illustrator, Figma) provide ways to author such relations (e.g. alignment
+and distribute tools, simple reusable components and color pallettes, arrows that stick to shapes),
+it's really hard to modify these relations once they're created. This is a problem, because during
+both initial sketching of a design and during refinement, diagram authors often need to make
+changes to the Gestalt relations in their diagrams. While such changes can be described as a single
+atomic change, because these relations are not stored in the editor they require changing every item
+involved in that relation. Moreover, changing one relation may break other downstream relations,
+causing an *edit cascade* that can be difficult to manage and time consuming to modify.
+
+## Solution
+
+One promising approach to mitigating this problem is visualizing constraints so they can be directly
+manipulated, for example in Figma handles can be dragged to change the spacing between components.
+
+Our approach goes further. Instead of (just) having visualizations of constraints (which can quickly
+get cluttered), we expose the scenegraph a user constructs when they make a diagram using Gestalt
+relations. In this way, a user can directly modify the relations in their diagram by modifying the
+scenegraph. This approach has several advantages:
+- The scenegraph can be organized independently of the visual organization of the diagram.
+- Nodes can be data-driven, allowing hybrid workflows with both code and direct manipulation. Allows
+  for complex conditionals to e.g. adapt to changing screen size. Allows for integrated data
+  visualizations.
 
 ## Getting Started
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.

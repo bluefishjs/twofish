@@ -370,7 +370,7 @@ export default function Editor() {
             overflow: "auto",
           }}
         >
-          <div>
+          {/* <div>
             <b>UI Events</b>
             {uiEvents.map((t, i) => (
               <div key={i}>{t}</div>
@@ -381,7 +381,7 @@ export default function Editor() {
             {storeEvents.map((t, i) => (
               <div key={i}>{t}</div>
             ))}
-          </div>
+          </div> */}
           <div style={{ width: "100vw", height: "100vh" }}>
             <ReactFlowProvider>
               <ReactFlow
