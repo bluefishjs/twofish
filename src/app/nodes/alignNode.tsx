@@ -2,8 +2,11 @@ import { useCallback, useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./alignNode.css";
 
+export type Alignment = "left" | "H" | "right" | "top" | "V" | "bottom";
 export type AlignNodeData = {
-  alignment: "left" | "H" | "right" | "top" | "V" | "bottom";
+  alignment: Alignment;
+  onChange: any;
+  childrenIds: string[];
 };
 
 export type AlignNodeProps = {
@@ -15,6 +18,7 @@ export function AlignNode({ data }: AlignNodeProps) {
 
   const onChange = useCallback((evt: any) => {
     setAlignment(evt.target.value);
+    data.onChange(evt.target.value as Alignment, data.childrenIds);
   }, []);
 
   return (

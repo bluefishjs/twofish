@@ -1,0 +1,13 @@
+/* Formatting for all shapes nodes */
+.geo-node {
+    border: 1px solid #eee;
+    padding: 5px;
+    border-radius: 5px;
+    background: white;
+}
+
+.geo-node label {
+    display: inline;
+    color: #777;
+    font-size: 12px;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowShapeUtil,
   Editor as EditorType,
   GeoShapeUtil,
   GroupShapeUtil,
@@ -19,10 +20,12 @@ import ReactFlow, {
   useNodesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { RectNode } from "./rectNode";
-import { AlignNode } from "./alignNode";
-import { StackNode } from "./stackNode";
+import { ArrowNode } from "./nodes/arrowNode";
+import { RectNode } from "./nodes/rectNode";
+import { AlignNode } from "./nodes/alignNode";
+import { StackNode } from "./nodes/stackNode";
 import { overrides } from "./overrides";
+import { EllipseNode } from "./nodes/ellipseNode";
 
 function getBBox(
   childNodeBBoxes: { x: number; y: number; width: number; height: number }[]
@@ -61,11 +64,27 @@ export default function Editor() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const nodeTypes = useMemo(
-    () => ({ rectNode: RectNode, alignNode: AlignNode, stackNode: StackNode }),
+    () => ({
+      rectNode: RectNode,
+      alignNode: AlignNode,
+      stackNode: StackNode,
+      ellipseNode: EllipseNode,
+      arrowNode: ArrowNode,
+    }),
     []
   );
 
   const [uiEvents, setUiEvents] = useState<string[]>([]);
+
+  const onShapeChange = (items: any) => {
+    console.log(items);
+    editor?.updateShapes([items]);
+  };
+
+  const onAlignmentChange = (items: any) => {
+    console.log(items);
+    // editor?.updateShapes([items]);
+  };
 
   const handleUiEvent = useCallback<TLUiEventHandler>(
     (name, data) => {
@@ -118,7 +137,11 @@ export default function Editor() {
             style: {
               width: 100,
             },
-            data: { alignment: (data as any).operation },
+            data: {
+              alignment: (data as any).operation,
+              childrenIds: (data as any).ids,
+              onChange: onAlignmentChange,
+            },
           });
         });
       } else if (name === "stack-shapes") {
@@ -181,6 +204,14 @@ export default function Editor() {
               `created shape (${record.type}) ${JSON.stringify(record)}`
             );
             if (editor.isShapeOfType(record, GeoShapeUtil)) {
+              const data = {
+                id: record.id,
+                x: record.x,
+                y: record.y,
+                width: record.props.w,
+                height: record.props.h,
+                onChange: onShapeChange,
+              };
               if (record.props.geo === "rectangle") {
                 setNodes((nodes) =>
                   nodes.concat({
@@ -191,10 +222,24 @@ export default function Editor() {
                       width: 100,
                       height: 100,
                     },
-                    data: { x: record.x, y: record.y },
+                    data: data,
+                  })
+                );
+              } else if (record.props.geo === "ellipse") {
+                setNodes((nodes) =>
+                  nodes.concat({
+                    id: record.id,
+                    type: "ellipseNode",
+                    position: { x: record.x, y: record.y },
+                    style: {
+                      width: 100,
+                      height: 100,
+                    },
+                    data: data,
                   })
                 );
               } else {
+                console.log(record);
                 setNodes((nodes) =>
                   nodes.concat({
                     id: record.id,
@@ -273,6 +318,26 @@ export default function Editor() {
               //     }))
               //   )
               // );
+            } else if (editor.isShapeOfType(record, ArrowShapeUtil)) {
+              console.log(record);
+              setNodes((nodes) =>
+                nodes.concat({
+                  id: record.id,
+                  type: "arrowNode",
+                  position: { x: record.x, y: record.y },
+                  style: {
+                    width: 100,
+                    height: 100,
+                  },
+                  data: {
+                    id: record.id,
+                    x: record.x,
+                    y: record.y,
+                    start: record.props.start,
+                    end: record.props.end,
+                  },
+                })
+              );
             } else {
               setNodes((nodes) =>
                 nodes.concat({
@@ -287,21 +352,83 @@ export default function Editor() {
 
         // Updated
         for (const [from, to] of Object.values(change.changes.updated)) {
-          if (
-            from.typeName === "instance" &&
-            to.typeName === "instance" &&
-            from.currentPageId !== to.currentPageId
-          ) {
-            logChangeEvent(
-              `changed page (${from.currentPageId}, ${to.currentPageId})`
-            );
+          if (from.typeName === "instance" && to.typeName === "instance") {
+            if (from.currentPageId !== to.currentPageId) {
+              logChangeEvent(
+                `changed page (${from.currentPageId}, ${to.currentPageId})`
+              );
+            }
           }
-          // if (from.typeName === "shape" && to.typeName === "shape") {
-          //   logChangeEvent(
-          //     `updated shape (${from.type}, ${to.type}) ${JSON.stringify(
-          //       from
-          //     )} ${JSON.stringify(to)}`
-          //   );
+          if (from.typeName === "shape" && to.typeName === "shape") {
+            logChangeEvent(
+              `updated shape (${from.type}, ${to.type}) ${JSON.stringify(
+                from
+              )} ${JSON.stringify(to)}`
+            );
+
+            console.log(from, to);
+            if (from.type === "ellipse" || from.type === "rect") {
+              setNodes((nodes) => {
+                const updatedNodes = nodes.map((node) => {
+                  if (node.id === from.id) {
+                    // TODO GRACE:
+                    // Debounce this?
+                    // If moving 2 things and they're both aligned to each other, do we want to update the values?
+                    const data = { ...node.data };
+                    if (to.x !== from.x) {
+                      data.x = to.x;
+                    }
+                    if (to.y !== from.y) {
+                      data.y = to.y;
+                    }
+
+                    if (to.props.w !== from.props.w) {
+                      data.width = to.props.w;
+                    }
+                    if (to.props.h !== from.props.h) {
+                      data.height = to.props.h;
+                    }
+                    return {
+                      ...node,
+                      data: data,
+                    };
+                  }
+                  return node;
+                });
+                return updatedNodes;
+              });
+            }
+            if (from.type === "arrow") {
+              setNodes((nodes) => {
+                const updatedNodes = nodes.map((node) => {
+                  if (node.id === from.id) {
+                    const data = { ...node.data };
+                    if (to.x !== from.x) {
+                      data.x = to.x;
+                    }
+                    if (to.y !== from.y) {
+                      data.y = to.y;
+                    }
+
+                    if (to.props.start !== from.props.start) {
+                      data.start = to.props.start;
+                    }
+                    if (to.props.end !== from.props.end) {
+                      data.end = to.props.end;
+                    }
+                    return {
+                      ...node,
+                      data: data,
+                    };
+                  }
+                  return node;
+                });
+                return updatedNodes;
+              });
+            }
+          }
+          // if (from.typeName === "arrow" && to.typeName === "arrow") {
+
           // }
         }
 
