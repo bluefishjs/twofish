@@ -2,11 +2,17 @@ import { useCallback, useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./alignNode.css";
 
-export type Alignment = "left" | "H" | "right" | "top" | "V" | "bottom";
+export type HorizontalAlignment = "left" | "H" | "right";
+export type VerticalAlignment = "top" | "V" | "bottom";
+
+export type Alignment = HorizontalAlignment | VerticalAlignment;
 export type AlignNodeData = {
   alignment: Alignment;
   onChange: any;
   childrenIds: string[];
+  // Alignment should either define just x position, just y position, or both
+  x?: number;
+  y?: number;
 };
 
 export type AlignNodeProps = {

@@ -5,7 +5,7 @@ import "./geoNode.css";
 // only handle defined points for now
 type Point = {
   x: number;
-  y: number; 
+  y: number;
 };
 export type ArrowNodeData = {
   id?: string;
@@ -101,6 +101,7 @@ export function ArrowNode({ data }: ArrowNodeProps) {
         ) : (
           <em>computed</em>
         )}
+        <br />
         <label htmlFor="end_y">end_y: </label>
         {data.end !== undefined ? (
           <input
