@@ -38,8 +38,7 @@ export function RectNode({ data }: RectNodeProps) {
     } else {
       return;
     }
-    // somehow emit a change here?
-    console.log("updated values", updatedValues);
+
     if (evt.target.value === "") {
       console.log("Can't make empty string ");
       return;

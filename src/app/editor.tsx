@@ -367,7 +367,7 @@ export default function Editor() {
             );
 
             console.log(from, to);
-            if (from.type === "ellipse" || from.type === "rect") {
+            if (from.type === "geo") {
               setNodes((nodes) => {
                 const updatedNodes = nodes.map((node) => {
                   if (node.id === from.id) {
@@ -388,6 +388,11 @@ export default function Editor() {
                     if (to.props.h !== from.props.h) {
                       data.height = to.props.h;
                     }
+
+                    console.log({
+                      ...node,
+                      data: data,
+                    });
                     return {
                       ...node,
                       data: data,
