@@ -38,10 +38,9 @@ export function EllipseNode({ data }: EllipseNodeProps) {
     } else {
       return;
     }
-    // somehow emit a change here?
-    console.log("updated values", updatedValues);
+
     if (evt.target.value === "") {
-      console.log("Can't make empty string ");
+      console.log("[Ellipse] Can't make empty string ");
       return;
     }
     data.onChange(updatedValues);

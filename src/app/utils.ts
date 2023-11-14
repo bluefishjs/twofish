@@ -28,3 +28,11 @@ export function getBBox(
 
     return childBBox;
 }
+
+// Check if string is numeric
+export function isNumeric(val: string): boolean {
+    return (
+      !isNaN(Number(Number.parseFloat(String(val)))) &&
+      isFinite(Number(val))
+    );
+  }

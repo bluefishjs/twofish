@@ -6,13 +6,21 @@ import {
   GeoShapeUtil,
   GroupShapeUtil,
   TLEventMapHandler,
+  TLShapeId,
   TLUiEventHandler,
+  TextShapeUtil,
   Tldraw,
   uniqueId,
 } from "@tldraw/tldraw";
 import {} from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import ReactFlow, {
   ReactFlowProvider,
@@ -24,38 +32,15 @@ import { ArrowNode } from "./nodes/arrowNode";
 import { RectNode } from "./nodes/rectNode";
 import { AlignNode } from "./nodes/alignNode";
 import { StackNode } from "./nodes/stackNode";
+import { TextNode } from "./nodes/textNode";
 import { overrides } from "./overrides";
 import { EllipseNode } from "./nodes/ellipseNode";
+import { getBBox } from "./utils";
+import { node } from "webpack";
 
-function getBBox(
-  childNodeBBoxes: { x: number; y: number; width: number; height: number }[]
-) {
-  console.log(childNodeBBoxes);
-
-  const x = Math.min(...childNodeBBoxes.map((b) => b.x));
-  const y = Math.min(...childNodeBBoxes.map((b) => b.y));
-
-  const x2 = Math.max(...childNodeBBoxes.map((b) => b.x + b.width));
-  const y2 = Math.max(...childNodeBBoxes.map((b) => b.y + b.height));
-
-  console.log({
-    x,
-    y,
-    x2,
-    y2,
-    width: x2 - x,
-    height: y2 - y,
-  });
-
-  const childBBox = {
-    x,
-    y,
-    width: x2 - x,
-    height: y2 - y,
-  };
-
-  return childBBox;
-}
+export const EditorContext = createContext<any>(undefined);
+export const NodesContext = createContext<any>(undefined);
+export const EdgesContext = createContext<any>(undefined);
 
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
@@ -70,48 +55,103 @@ export default function Editor() {
       stackNode: StackNode,
       ellipseNode: EllipseNode,
       arrowNode: ArrowNode,
+      textNode: TextNode,
     }),
     []
   );
 
+  const editorContextValue = useMemo(
+    () => ({
+      editor,
+      setEditor,
+    }),
+    [editor, setEditor]
+  );
+  const nodesContextValue = useMemo(
+    () => ({
+      nodes,
+      setNodes,
+    }),
+    [nodes, setNodes]
+  );
+
+  // Types of edges in graph
+  enum EdgeTypes {
+    Align,
+    Stack,
+  }
+
   const [uiEvents, setUiEvents] = useState<string[]>([]);
 
   const onShapeChange = (items: any) => {
-    console.log(items);
-    editor?.updateShapes([items]);
-  };
-
-  const onAlignmentChange = (items: any) => {
-    console.log(items);
-    // editor?.updateShapes([items]);
+    setEditor((editor) => editor?.updateShapes([items]));
   };
 
   const handleUiEvent = useCallback<TLUiEventHandler>(
     (name, data) => {
+      console.log(name, data);
       setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
 
       const uid = uniqueId();
 
       if (name === "align-shapes") {
         setNodes((nodes) => {
-          setEdges((edges) =>
-            edges.concat(
+          console.log("[UI Event]: Nodes:", nodes);
+
+          setEdges((edges) => {
+            console.log("[UI Event]: Edges:", edges);
+            return edges.concat(
               (data as any).ids.map((id: string, i: number) => ({
                 id: `e${i}-${uid}`,
                 target: uid,
                 source: id,
+                data: {
+                  edgeType: EdgeTypes.Align,
+                },
               }))
-            )
-          );
+            );
+          });
+
+          // Align parameters
+          let alignX: number | undefined;
+          let alignY: number | undefined;
+          let minX: number | undefined;
+          let maxX: number | undefined;
+          let minY: number | undefined;
+          let maxY: number | undefined;
+          const operation = (data as any).operation;
+          const ids = (data as any).ids;
 
           const removedPositions = nodes.map((node) => {
-            if (!(data as any).ids.includes(node.id)) return node;
+            if (!ids.includes(node.id)) return node;
 
             if (
-              (data as any).operation === "left" ||
-              (data as any).operation === "center-horizontally" ||
-              (data as any).operation === "right"
+              operation === "left" ||
+              operation === "center-horizontal" ||
+              operation === "right"
             ) {
+              switch (operation) {
+                case "left":
+                  alignX =
+                    alignX === undefined
+                      ? node.data.x
+                      : Math.min(alignX, node.data.x);
+                  break;
+                case "center-horizontal":
+                  minX = Math.min(node.data.x, minX ?? node.data.x);
+                  maxX = Math.max(
+                    node.data.x + (node.data.width ?? 0),
+                    maxX ?? 0
+                  );
+                  alignX = (minX + maxX) / 2;
+                  break;
+                case "right":
+                  alignX =
+                    alignX === undefined
+                      ? node.data.x
+                      : Math.max(alignX, node.data.x);
+                  break;
+              }
               return {
                 ...node,
                 data: {
@@ -120,6 +160,28 @@ export default function Editor() {
                 },
               };
             } else {
+              switch (operation) {
+                case "top":
+                  alignY =
+                    alignY === undefined
+                      ? node.data.y
+                      : Math.min(alignY, node.data.y);
+                  break;
+                case "center-vertical":
+                  minY = Math.min(node.data.y, minY ?? 0);
+                  maxY = Math.max(
+                    node.data.y + (node.data.height ?? 0),
+                    maxY ?? 0
+                  );
+                  alignX = (minY + maxY) / 2;
+                  break;
+                case "bottom":
+                  alignY =
+                    alignY === undefined
+                      ? node.data.y
+                      : Math.max(alignY, node.data.y);
+                  break;
+              }
               return {
                 ...node,
                 data: {
@@ -138,47 +200,119 @@ export default function Editor() {
               width: 100,
             },
             data: {
+              id: uid,
               alignment: (data as any).operation,
               childrenIds: (data as any).ids,
-              onChange: onAlignmentChange,
+              x: alignX,
+              y: alignY,
             },
           });
         });
       } else if (name === "stack-shapes") {
+        console.log(data);
+        let selectedIds: TLShapeId[] = [];
+        const operation = (data as any).operation;
+        const alignment =
+          operation === "vertical" ? "center-horizontal" : "center-vertical";
+
+        // TODO: How to do alignment:
+        // -> First pass to see whether there are any nodes whose positions are already computed in the stack
+        // -> If there is more than 1, check that they match specifications and then distribute everything based on that
+        //    -> Alignment probably should be different based on how the stack actually aligns
+        // -> If there's only 1, use that position as reference
+        // -> If no positions set, just center align them
+        setEditor((editor) => {
+          selectedIds = editor?.selectedIds ?? [];
+          return editor?.alignShapes(alignment, selectedIds);
+          // TODO: alignment should only happen after we check everything is consistent
+        });
         setNodes((nodes) => {
           setEdges((edges) =>
-            edges.concat([
-              {
-                id: `e0-${uid}`,
+            edges.concat(
+              selectedIds.map((id, i) => ({
+                id: `e${i}-${uid}`,
                 target: uid,
-                source: nodes[0].id,
-              },
-              {
-                id: `e1-${uid}`,
-                target: uid,
-                source: nodes[1].id,
-              },
-              {
-                id: `e2-${uid}`,
-                target: uid,
-                source: nodes[2].id,
-              },
-            ])
+                source: id,
+                data: {
+                  edgeType: EdgeTypes.Stack,
+                },
+              }))
+            )
           );
 
-          return nodes.concat({
+          let minX: number | undefined;
+          let maxX: number | undefined;
+          let minY: number | undefined;
+          let maxY: number | undefined;
+          let stackX: number | undefined = undefined;
+          let stackY: number | undefined = undefined;
+
+          const sortedIds = nodes
+            .filter((node: any) => selectedIds.includes(node.id as TLShapeId))
+            .sort((a, b) =>
+              operation === "horizontal"
+                ? a.data.y < b.data.y
+                  ? -1
+                  : a.data.y > b.data.y
+                  ? 1
+                  : 0
+                : a.data.x < b.data.x
+                ? -1
+                : a.data.x > b.data.x
+                ? 1
+                : 0
+            )
+            .map((node) => node.id);
+          console.log("sorted", sortedIds);
+          const removedPositions = nodes.map((node) => {
+            if (!selectedIds.includes(node.id as TLShapeId)) {
+              return node;
+            }
+
+            minX = Math.min(node.data.x, minX ?? node.data.x);
+            minY = Math.min(node.data.y, minY ?? node.data.y);
+
+            if (alignment === "center-horizontal") {
+              maxX = Math.max(node.data.x + (node.data.width ?? 0), maxX ?? 0);
+              stackX = (minX + maxX) / 2;
+            } else {
+              maxY = Math.max(node.data.y + (node.data.height ?? 0), maxY ?? 0);
+              stackY = (minY + maxY) / 2;
+            }
+
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                y: undefined,
+              },
+            };
+          });
+          return removedPositions.concat({
             id: uid,
             type: "stackNode",
             position: { x: 400, y: 150 },
             style: {
               width: 100,
             },
-            data: { direction: (data as any).operation },
+            data: {
+              id: uid,
+              direction: (data as any).operation,
+              alignment: alignment,
+              x: stackX,
+              y: stackY,
+              minX: minX,
+              minY: minY,
+              childrenIds: sortedIds,
+            },
           });
         });
+      } else if (name === "undo") {
+        // TODO: handle undo -> using UI event?
+        console.log(data);
       }
     },
-    [setEdges, setNodes]
+    [setEdges, setNodes, EdgeTypes.Align, EdgeTypes.Stack]
   );
 
   const setAppToState = useCallback((editor: EditorType) => {
@@ -239,7 +373,6 @@ export default function Editor() {
                   })
                 );
               } else {
-                console.log(record);
                 setNodes((nodes) =>
                   nodes.concat({
                     id: record.id,
@@ -308,16 +441,6 @@ export default function Editor() {
                   return node;
                 });
               });
-
-              // setEdges((edges) =>
-              //   edges.concat(
-              //     editor.getSortedChildIds(record.id).map((childId, i) => ({
-              //       id: `e${i}-${record.id}`,
-              //       source: record.id,
-              //       target: childId,
-              //     }))
-              //   )
-              // );
             } else if (editor.isShapeOfType(record, ArrowShapeUtil)) {
               console.log(record);
               setNodes((nodes) =>
@@ -338,7 +461,24 @@ export default function Editor() {
                   },
                 })
               );
+            } else if (editor.isShapeOfType(record, TextShapeUtil)) {
+              setNodes((nodes) =>
+                nodes.concat({
+                  id: record.id,
+                  type: "textNode",
+                  position: { x: record.x, y: record.y },
+                  style: {
+                  },
+                  data: {
+                    id: record.id,
+                    x: record.x,
+                    y: record.y,
+                    content: record.props.text,
+                  },
+                })
+              );
             } else {
+              console.log(record);
               setNodes((nodes) =>
                 nodes.concat({
                   id: record.id,
@@ -366,7 +506,6 @@ export default function Editor() {
               )} ${JSON.stringify(to)}`
             );
 
-            console.log(from, to);
             if (from.type === "geo") {
               setNodes((nodes) => {
                 const updatedNodes = nodes.map((node) => {
@@ -375,24 +514,19 @@ export default function Editor() {
                     // Debounce this?
                     // If moving 2 things and they're both aligned to each other, do we want to update the values?
                     const data = { ...node.data };
-                    if (to.x !== from.x) {
-                      data.x = to.x;
-                    }
-                    if (to.y !== from.y) {
-                      data.y = to.y;
-                    }
+                    if (data.x !== undefined && to.x !== from.x) data.x = to.x;
+                    if (data.y !== undefined && to.y !== from.y) data.y = to.y;
 
-                    if (to.props.w !== from.props.w) {
-                      data.width = to.props.w;
-                    }
-                    if (to.props.h !== from.props.h) {
-                      data.height = to.props.h;
-                    }
+                    if (
+                      data.width !== undefined &&
+                      to.props.w !== from.props.w
+                    ) data.width = to.props.w;
 
-                    console.log({
-                      ...node,
-                      data: data,
-                    });
+                    if (
+                      data.height !== undefined &&
+                      to.props.h !== from.props.h
+                    ) data.height = to.props.h;
+
                     return {
                       ...node,
                       data: data,
@@ -403,24 +537,35 @@ export default function Editor() {
                 return updatedNodes;
               });
             }
-            if (from.type === "arrow") {
+            else if (from.type === "arrow") {
               setNodes((nodes) => {
                 const updatedNodes = nodes.map((node) => {
                   if (node.id === from.id) {
                     const data = { ...node.data };
-                    if (to.x !== from.x) {
-                      data.x = to.x;
-                    }
-                    if (to.y !== from.y) {
-                      data.y = to.y;
-                    }
+                    if (to.x !== from.x) data.x = to.x;
+                    if (to.y !== from.y) data.y = to.y;
+                    if (to.props.start !== from.props.start) data.start = to.props.start;
+                    if (to.props.end !== from.props.end) data.end = to.props.end;
 
-                    if (to.props.start !== from.props.start) {
-                      data.start = to.props.start;
-                    }
-                    if (to.props.end !== from.props.end) {
-                      data.end = to.props.end;
-                    }
+                    return {
+                      ...node,
+                      data: data,
+                    };
+                  }
+                  return node;
+                });
+                return updatedNodes;
+              });
+            }
+            else if (from.type === "text") {
+              setNodes((nodes) => {
+                const updatedNodes = nodes.map((node) => {
+                  if (node.id === from.id) {
+                    const data = { ...node.data };
+                    if (to.x !== from.x) data.x = to.x;
+                    if (to.y !== from.y) data.y = to.y;
+                    if (to.props.text !== from.props.text) data.content = to.props.text;
+
                     return {
                       ...node,
                       data: data,
@@ -477,32 +622,35 @@ export default function Editor() {
   }, [editor, setNodes]);
 
   return (
-    <div style={{ display: "flex" }}>
-      <div style={{ width: "60vw", height: "100vh" }}>
-        <Tldraw
-          autoFocus
-          onUiEvent={handleUiEvent}
-          onMount={setAppToState}
-          overrides={overrides}
-        />
-      </div>
-      <div>
-        <div
-          style={{
-            width: "40vw",
-            height: "100vh",
-            padding: 8,
-            background: "#eee",
-            border: "none",
-            fontFamily: "monospace",
-            fontSize: 12,
-            borderLeft: "solid 2px #333",
-            display: "flex",
-            flexDirection: "column-reverse",
-            overflow: "auto",
-          }}
-        >
-          {/* <div>
+    <EditorContext.Provider value={editorContextValue}>
+      <NodesContext.Provider value={nodesContextValue}>
+        <EdgesContext.Provider value={{ edges, setEdges }}>
+          <div style={{ display: "flex" }}>
+            <div style={{ width: "60vw", height: "100vh" }}>
+              <Tldraw
+                autoFocus
+                onUiEvent={handleUiEvent}
+                onMount={setAppToState}
+                overrides={overrides}
+              />
+            </div>
+            <div>
+              <div
+                style={{
+                  width: "40vw",
+                  height: "100vh",
+                  padding: 8,
+                  background: "#eee",
+                  border: "none",
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  borderLeft: "solid 2px #333",
+                  display: "flex",
+                  flexDirection: "column-reverse",
+                  overflow: "auto",
+                }}
+              >
+                {/* <div>
             <b>UI Events</b>
             {uiEvents.map((t, i) => (
               <div key={i}>{t}</div>
@@ -514,19 +662,22 @@ export default function Editor() {
               <div key={i}>{t}</div>
             ))}
           </div> */}
-          <div style={{ width: "100vw", height: "100vh" }}>
-            <ReactFlowProvider>
-              <ReactFlow
-                nodeTypes={nodeTypes}
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-              />
-            </ReactFlowProvider>
+                <div style={{ width: "100vw", height: "100vh" }}>
+                  <ReactFlowProvider>
+                    <ReactFlow
+                      nodeTypes={nodeTypes}
+                      nodes={nodes}
+                      edges={edges}
+                      onNodesChange={onNodesChange}
+                      onEdgesChange={onEdgesChange}
+                    />
+                  </ReactFlowProvider>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </EdgesContext.Provider>
+      </NodesContext.Provider>
+    </EditorContext.Provider>
   );
 }

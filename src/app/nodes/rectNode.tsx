@@ -1,6 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { Handle, Position } from "reactflow";
 import "./geoNode.css";
+import { NodesContext, EditorContext } from "../editor";
 
 export type RectNodeData = {
   id?: string;
@@ -18,6 +19,8 @@ export type RectNodeProps = {
 // const handleStyle = { left: 10 };
 
 export function RectNode({ data }: RectNodeProps) {
+  const { editor, setEditor } = useContext(EditorContext);
+
   const onChange = useCallback((evt: any) => {
     let updatedValues: any = {
       id: data.id,
@@ -40,9 +43,10 @@ export function RectNode({ data }: RectNodeProps) {
     }
 
     if (evt.target.value === "") {
-      console.log("Can't make empty string ");
+      console.log("[Rect] Can't make empty string ");
       return;
     }
+
     data.onChange(updatedValues);
   }, []);
 
@@ -51,7 +55,7 @@ export function RectNode({ data }: RectNodeProps) {
       <div>
         <b>Rect</b>
       </div>
-      {/* <Handle type="target" position={Position.Top} /> */}
+      <Handle type="target" position={Position.Top} />
       <div>
         <label htmlFor="x">x: </label>
         {data.x !== undefined ? (
@@ -109,20 +113,20 @@ export function RectNode({ data }: RectNodeProps) {
           <em>computed</em>
         )}
       </div>
-      <Handle
+      {/* <Handle
         type="source"
         position={Position.Bottom}
         id="a"
         style={{
-          top: 62,
+          // top: 62,
         }}
-      />
-      {/* <Handle
+      /> */}
+      <Handle
         type="source"
         position={Position.Bottom}
         id="b"
-        style={handleStyle}
-      /> */}
+        // style={handleStyle}
+      />
     </div>
   );
 }
