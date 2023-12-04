@@ -1,5 +1,5 @@
 "use client";
-
+import _ from "lodash";
 import {
   ArrowShapeUtil,
   Editor as EditorType,
@@ -44,7 +44,8 @@ export const EdgesContext = createContext<any>(undefined);
 
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
-
+  const [selectedNodes, setSelectedNodes] = useState(Array<string>());
+  const [selectedShapeIds, setSelectedShapeIds] = useState(Array<string>());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -60,6 +61,26 @@ export default function Editor() {
     []
   );
 
+  const onSelectionChange = (evt: any) => {
+    const newSelectedNodes = evt.nodes;
+    const selectedShapeIdsSet: Set<string> = new Set<string>();
+    for (const node of newSelectedNodes) {
+      if (node.type === "alignNode" || node.type === "stackNode") {
+        // prevent duplicate values
+        (node.data.childrenIds ?? []).forEach((item: string) => selectedShapeIdsSet.add(item));
+      } else selectedShapeIdsSet.add(node.id);
+    }
+    const newSelectedShapeIds = Array.from(selectedShapeIdsSet).toSorted();
+    if(_.isEqual(selectedShapeIds, newSelectedShapeIds)) {
+      return;
+    }
+    setSelectedNodes(newSelectedNodes.map((node: any) => node.id));
+    setSelectedShapeIds(newSelectedShapeIds);
+    setEditor((editor) => {
+      return editor?.select(...(newSelectedShapeIds as TLShapeId[]));
+    });
+  };
+
   const editorContextValue = useMemo(
     () => ({
       editor,
@@ -73,6 +94,12 @@ export default function Editor() {
       setNodes,
     }),
     [nodes, setNodes]
+  );
+  const memoizedSelectedNodes = useMemo(
+    () => ({
+      selectedNodes,
+      setSelectedNodes
+    }), [selectedNodes, setSelectedNodes]
   );
 
   // Types of edges in graph
@@ -93,7 +120,7 @@ export default function Editor() {
       setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
 
       const uid = uniqueId();
-
+      
       if (name === "align-shapes") {
         setNodes((nodes) => {
           console.log("[UI Event]: Nodes:", nodes);
@@ -251,19 +278,19 @@ export default function Editor() {
             .filter((node: any) => selectedIds.includes(node.id as TLShapeId))
             .sort((a, b) =>
               operation === "horizontal"
-                ? a.data.y < b.data.y
+                ? a.data.x < b.data.x
                   ? -1
-                  : a.data.y > b.data.y
+                  : a.data.x > b.data.x
                   ? 1
                   : 0
-                : a.data.x < b.data.x
+                : a.data.y < b.data.y
                 ? -1
-                : a.data.x > b.data.x
+                : a.data.y > b.data.y
                 ? 1
                 : 0
             )
             .map((node) => node.id);
-          console.log("sorted", sortedIds);
+
           const removedPositions = nodes.map((node) => {
             if (!selectedIds.includes(node.id as TLShapeId)) {
               return node;
@@ -354,7 +381,7 @@ export default function Editor() {
                     position: { x: record.x, y: record.y },
                     style: {
                       width: 100,
-                      height: 100,
+                      // height: 100,
                     },
                     data: data,
                   })
@@ -367,7 +394,7 @@ export default function Editor() {
                     position: { x: record.x, y: record.y },
                     style: {
                       width: 100,
-                      height: 100,
+                      // height: 100,
                     },
                     data: data,
                   })
@@ -442,14 +469,12 @@ export default function Editor() {
                 });
               });
             } else if (editor.isShapeOfType(record, ArrowShapeUtil)) {
-              console.log(record);
               setNodes((nodes) =>
                 nodes.concat({
                   id: record.id,
                   type: "arrowNode",
                   position: { x: record.x, y: record.y },
                   style: {
-                    width: 100,
                     height: 100,
                   },
                   data: {
@@ -467,8 +492,7 @@ export default function Editor() {
                   id: record.id,
                   type: "textNode",
                   position: { x: record.x, y: record.y },
-                  style: {
-                  },
+                  style: {},
                   data: {
                     id: record.id,
                     x: record.x,
@@ -517,16 +541,89 @@ export default function Editor() {
                     if (data.x !== undefined && to.x !== from.x) data.x = to.x;
                     if (data.y !== undefined && to.y !== from.y) data.y = to.y;
 
-                    if (
-                      data.width !== undefined &&
-                      to.props.w !== from.props.w
-                    ) data.width = to.props.w;
+                    if (data.width !== undefined && to.props.w !== from.props.w)
+                      data.width = to.props.w;
 
                     if (
                       data.height !== undefined &&
                       to.props.h !== from.props.h
-                    ) data.height = to.props.h;
+                    )
+                      data.height = to.props.h;
 
+                    return {
+                      ...node,
+                      data: data,
+                    };
+                  }
+                  return node;
+                });
+                return updatedNodes;
+              });
+            } else if (from.type === "arrow") {
+              setNodes((nodes) => {
+                const updatedNodes = nodes.map((node) => {
+                  if (node.id === from.id) {
+                    const data = { ...node.data };
+                    if (to.x !== from.x) data.x = to.x;
+                    if (to.y !== from.y) data.y = to.y;
+                    if ("start" in to.props) {
+                      if ("boundShapeId" in to.props.start) {
+                        const refId = to.props.start.boundShapeId;
+                        data.start = {
+                          ref: refId,
+                          ...to.props.start.normalizedAnchor,
+                        };
+                        // TODO: Instead of just concatting, check if another start node is already in there
+                        setEdges((edges) =>
+                          edges.concat({
+                            id: `e${node.id}-${refId}-start`,
+                            target: node.id,
+                            source: refId,
+                            data: {
+                              start: true,
+                            },
+                          })
+                        );
+                      } else data.start = to.props.start;
+                    }
+                    if ("end" in to.props) {
+                      if ("boundShapeId" in to.props.end) {
+                        const refId = to.props.end.boundShapeId;
+                        data.end = {
+                          ref: refId,
+                          ...to.props.end.normalizedAnchor,
+                        };
+                        setEdges((edges) =>
+                          edges.concat({
+                            id: `e${node.id}-${refId}-end`,
+                            target: node.id,
+                            source: refId,
+                            data: {
+                              start: false,
+                            },
+                          })
+                        );
+                      } else data.end = to.props.end;
+                    }
+
+                    return {
+                      ...node,
+                      data: data,
+                    };
+                  }
+                  return node;
+                });
+                return updatedNodes;
+              });
+            } else if (from.type === "text") {
+              setNodes((nodes) => {
+                const updatedNodes = nodes.map((node) => {
+                  if (node.id === from.id) {
+                    const data = { ...node.data };
+                    if (to.x !== from.x) data.x = to.x;
+                    if (to.y !== from.y) data.y = to.y;
+                    if (to.props.text !== from.props.text)
+                      data.content = to.props.text;
                     return {
                       ...node,
                       data: data,
@@ -537,49 +634,27 @@ export default function Editor() {
                 return updatedNodes;
               });
             }
-            else if (from.type === "arrow") {
-              setNodes((nodes) => {
-                const updatedNodes = nodes.map((node) => {
-                  if (node.id === from.id) {
-                    const data = { ...node.data };
-                    if (to.x !== from.x) data.x = to.x;
-                    if (to.y !== from.y) data.y = to.y;
-                    if (to.props.start !== from.props.start) data.start = to.props.start;
-                    if (to.props.end !== from.props.end) data.end = to.props.end;
-
-                    return {
-                      ...node,
-                      data: data,
-                    };
+          } else if (from.typeName === "instance_page_state" && to.typeName === "instance_page_state") {
+            // keep track of selected id's
+            if (!_.isEqual(from.selectedIds, to.selectedIds)) {
+              // TODO: Come up with a better solution to this. This works okay for now but is not great
+              const toIds = to.selectedIds.map(id => id as string);
+              setNodes((nodes) =>
+                nodes.map((node) => {
+                  if(toIds.length === 0 || (node.type !== "alignNode" && node.type !== "stackNode" && !toIds.includes(node.id))) {
+                    return {...node, selected: false};
                   }
-                  return node;
-                });
-                return updatedNodes;
-              });
-            }
-            else if (from.type === "text") {
-              setNodes((nodes) => {
-                const updatedNodes = nodes.map((node) => {
-                  if (node.id === from.id) {
-                    const data = { ...node.data };
-                    if (to.x !== from.x) data.x = to.x;
-                    if (to.y !== from.y) data.y = to.y;
-                    if (to.props.text !== from.props.text) data.content = to.props.text;
-
-                    return {
-                      ...node,
-                      data: data,
-                    };
+                  if (toIds.includes(node.id)) {
+                    return { ...node, selected: true };
                   }
-                  return node;
-                });
-                return updatedNodes;
-              });
+                  if(memoizedSelectedNodes.selectedNodes.includes(node.id)) {
+                    return {... node, selected: true};
+                  }
+                  return { ...node, selected: false };
+                })
+              );
             }
           }
-          // if (from.typeName === "arrow" && to.typeName === "arrow") {
-
-          // }
         }
 
         // Removed
@@ -609,6 +684,11 @@ export default function Editor() {
               });
             }
             setNodes((nodes) => nodes.filter((node) => node.id !== record.id));
+            setEdges((edges) =>
+              edges.filter(
+                (edge) => edge.target !== record.id && edge.source !== record.id
+              )
+            );
           }
         }
       }
@@ -619,7 +699,7 @@ export default function Editor() {
     return () => {
       editor.off("change", handleChangeEvent);
     };
-  }, [editor, setNodes]);
+  }, [editor, memoizedSelectedNodes.selectedNodes, setEdges, setNodes]);
 
   return (
     <EditorContext.Provider value={editorContextValue}>
@@ -670,6 +750,7 @@ export default function Editor() {
                       edges={edges}
                       onNodesChange={onNodesChange}
                       onEdgesChange={onEdgesChange}
+                      onSelectionChange={onSelectionChange}
                     />
                   </ReactFlowProvider>
                 </div>

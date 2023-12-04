@@ -26,3 +26,11 @@ body {
 * {
   color: black;
 }
+
+.react-flow__node {
+  border-radius: 5px;
+}
+
+.react-flow__node.selected {
+  border: 3px solid blue;
+}

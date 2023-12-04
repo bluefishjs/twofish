@@ -1,8 +1,8 @@
 import { useCallback, useContext } from "react";
 import { Handle, Position } from "reactflow";
-import "./textNode.css";
+import "./geoNode.css";
 import { EditorContext } from "../editor";
-import {isNumeric} from "../utils.ts";
+import { isNumeric } from "../utils";
 
 export type TextNodeData = {
   id?: string;
@@ -26,46 +26,34 @@ export function TextNode({ data }: TextNodeProps) {
 
   const onChange = useCallback((evt: any, target: TextChangeTarget) => {
     console.log(evt);
-
+    let updatedValues: any = {
+      id: data.id,
+      type: "geo",
+      props: {},
+    };
     switch (target) {
-      case TextChangeTarget.x:
-        if(!isNumeric(evt.target.value)) {
-            console.log("can't update non-numeric value");
-            return;
+      case TextChangeTarget.content:
+        if(evt.target.value === "") {
+            console.log("can't update content with empty string")
         }
-        editor.updateShapes([
-          {
-            id: data.id,
-            type: "geo",
-            x: +evt.target.value as number,
-          },
-        ]);
+        updatedValues.props.text = evt.target.value;
+        break;
+      case TextChangeTarget.x:
+        if (!isNumeric(evt.target.value)) {
+          console.log("can't update x with non-numeric value");
+          return;
+        }
+        updatedValues.x = +evt.target.value as number;
         break;
       case TextChangeTarget.y:
-        if(!isNumeric(evt.target.value)) {
-            console.log("can't update non-numeric value");
-            return;
+        if (!isNumeric(evt.target.value)) {
+          console.log("can't update y with non-numeric value");
+          return;
         }
-        editor.updateShapes([
-          {
-            id: data.id,
-            type: "geo",
-            y: +evt.target.value as number,
-          },
-        ]);
-        break;
-      case TextChangeTarget.content:
-        editor.updateShapes([
-          {
-            id: data.id,
-            type: "geo",
-            props: {
-              text: evt.target.value,
-            },
-          },
-        ]);
+        updatedValues.y = +evt.target.value as number;
         break;
     }
+    editor.updateShapes([updatedValues]);
   }, []);
 
   return (
@@ -73,7 +61,7 @@ export function TextNode({ data }: TextNodeProps) {
       <div>
         <b>Text</b>
       </div>
-      {/* <Handle type="target" position={Position.Top} /> */}
+      <Handle type="target" position={Position.Top} />
       <div>
         <label htmlFor="x">x: </label>
         {data.x !== undefined ? (

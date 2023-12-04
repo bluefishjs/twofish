@@ -2,17 +2,25 @@ import { useCallback } from "react";
 import { Handle, Position } from "reactflow";
 import "./geoNode.css";
 
-// only handle defined points for now
+// either attached to a reference or a coordinate
 type Point = {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
+  ref?: string; // if ref exists, x and y are normalized values. TODO: Find better way to represent this
 };
+
+type AnchoredPoint = {
+  ref?: number;
+  normalizedX: number;
+  normalizedY: number;
+}
+
 export type ArrowNodeData = {
   id?: string;
   x?: number;
   y?: number;
-  start?: Point;
-  end?: Point;
+  start: Point;
+  end: Point;
 };
 
 export type ArrowNodeProps = {
@@ -31,7 +39,7 @@ export function ArrowNode({ data }: ArrowNodeProps) {
       <div>
         <b>Arrow</b>
       </div>
-      {/* <Handle type="target" position={Position.Top} /> */}
+      <Handle type="target" position={Position.Top} />
       <div>
         <label htmlFor="x">x: </label>
         {data.x !== undefined ? (
@@ -62,7 +70,7 @@ export function ArrowNode({ data }: ArrowNodeProps) {
         )}
         <br />
         <label htmlFor="start_x">start_x: </label>
-        {data.start !== undefined ? (
+        {data.start.x !== undefined ? (
           <input
             id="start_x"
             name="text"
@@ -75,21 +83,28 @@ export function ArrowNode({ data }: ArrowNodeProps) {
           <em>computed</em>
         )}
         <label htmlFor="start_y">start_y: </label>
-        {data.start !== undefined ? (
+        {data.start.y !== undefined ? (
           <input
             id="start_y"
             name="text"
             onChange={onChange}
             className="nodrag"
-            value={Math.round(data.start.y)}
+            value={ Math.round(data.start.y)}
             size={5}
           />
         ) : (
           <em>computed</em>
         )}
         <br />
+        <label htmlFor="start_ref">start_ref: </label>
+        {data.start.ref !== undefined ? (
+          <em>{data.start.ref}</em>
+        ) : (
+          <em>none</em>
+        )}
+        <br />
         <label htmlFor="end_x">end_x: </label>
-        {data.end !== undefined ? (
+        {data.end.x !== undefined ? (
           <input
             id="end_x"
             name="text"
@@ -101,9 +116,8 @@ export function ArrowNode({ data }: ArrowNodeProps) {
         ) : (
           <em>computed</em>
         )}
-        <br />
         <label htmlFor="end_y">end_y: </label>
-        {data.end !== undefined ? (
+        {data.end.y !== undefined ? (
           <input
             id="end_y"
             name="text"
@@ -115,6 +129,14 @@ export function ArrowNode({ data }: ArrowNodeProps) {
         ) : (
           <em>computed</em>
         )}
+        <br/>
+        <label htmlFor="end_ref">end_ref: </label>
+        {data.end.ref !== undefined ? (
+          <em>{data.end.ref}</em>
+        ) : (
+          <em>none</em>
+        )}
+        <br />
       </div>
       <Handle
         type="source"

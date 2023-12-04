@@ -35,6 +35,8 @@ export function StackNode({ data }: StackNodeProps) {
   const onChange = useCallback((evt: any, target: StackChangeTarget) => {
     console.log(evt, target);
     
+    const updatedDirection = target === StackChangeTarget.direction ? evt.target.value : direction;
+    // TODO: add in interactive spacing change
 
     if (target === StackChangeTarget.direction) {
       // set default spacing
@@ -121,11 +123,10 @@ export function StackNode({ data }: StackNodeProps) {
       });
 
       setEditor(editor.updateShapes(orderedNodes.map((node: any) => ({id: node.id, type: "geo", x: node.data.x, y: node.data.y}))));
-      setDirection(evt.target.value);
+      setDirection(updatedDirection);
       setNodes(newNodes);
-      console.log("FINISHED CHANGE");
     }
-  }, []);
+  }, [data.childrenIds, data.id, data.minX, data.minY, direction, editor, nodes, setEditor, setNodes]);
 
   return (
     <div className="stack-node">
