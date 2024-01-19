@@ -1,17 +1,18 @@
 import { useCallback, useContext } from "react";
-// import { Handle, Position } from "reactflow";
+import { Handle, Position } from "reactflow";
 import "./geoNode.css";
-import { NodesContext, EditorContext } from "../editor";
+import { EditorContext } from "../editor";
 import {Node} from "./node";
 
-export type RectNodeData = {
+export type GeoNodeData = {
+    shapeName: string;
 };
 
-export type RectNodeProps = {
-  data: Node<RectNodeData>;
+export type GeoNodeProps = {
+  data: Node<GeoNodeData>;
 };
 
-export function RectNode({ data }: RectNodeProps) {
+export function GeoNode({ data }: GeoNodeProps) {
   const { editor, setEditor } = useContext(EditorContext);
 
   const onChange = useCallback((evt: any) => {
@@ -39,15 +40,15 @@ export function RectNode({ data }: RectNodeProps) {
       console.log("[Rect] Can't make empty string ");
       return;
     }
-    setEditor(editor?.updateShapes([updatedValues]));
+    setEditor((editor) => editor?.updateShapes(updatedValues));
   }, []);
 
   return (
     <div className="geo-node">
       <div>
-        <b>Rect</b>
+        <b>{data.data.shapeName}</b>
       </div>
-      {/* <Handle type="target" position={Position.Top} /> */}
+      <Handle type="target" position={Position.Top} />
       <div>
         <label htmlFor="x">x: </label>
         {data.bbox.x !== undefined ? (
@@ -105,11 +106,11 @@ export function RectNode({ data }: RectNodeProps) {
           <em>computed</em>
         )}
       </div>
-      {/* <Handle
+      <Handle
         type="source"
         position={Position.Bottom}
         id="b"
-      /> */}
+      />
     </div>
   );
 }

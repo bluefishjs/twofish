@@ -34,3 +34,15 @@ body {
 .react-flow__node.selected {
   border: 3px solid blue;
 }
+
+.tree-node.selected {
+  background-color: #95cdf3;
+}
+
+.tree-node.unselected {
+  background-color: none;
+}
+
+.tree-body {
+  height:100%;
+}

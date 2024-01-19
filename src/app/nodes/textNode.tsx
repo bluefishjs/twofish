@@ -3,16 +3,14 @@ import { Handle, Position } from "reactflow";
 import "./geoNode.css";
 import { EditorContext } from "../editor";
 import { isNumeric } from "../utils";
+import {Node} from "./node";
 
 export type TextNodeData = {
-  id?: string;
-  x?: number;
-  y?: number;
   content?: string;
 };
 
 export type TextNodeProps = {
-  data: TextNodeData;
+  data: Node<TextNodeData>;
 };
 
 enum TextChangeTarget {
@@ -64,13 +62,13 @@ export function TextNode({ data }: TextNodeProps) {
       <Handle type="target" position={Position.Top} />
       <div>
         <label htmlFor="x">x: </label>
-        {data.x !== undefined ? (
+        {data.bbox.x !== undefined ? (
           <input
             id="x"
             name="text"
             onChange={(evt) => onChange(evt, TextChangeTarget.x)}
             className="nodrag"
-            value={Math.round(data.x)}
+            value={Math.round(data.bbox.x)}
             size={5}
           />
         ) : (
@@ -78,13 +76,13 @@ export function TextNode({ data }: TextNodeProps) {
         )}
         <br />
         <label htmlFor="y">y: </label>
-        {data.y !== undefined ? (
+        {data.bbox.y !== undefined ? (
           <input
             id="y"
             name="text"
             onChange={(evt) => onChange(evt, TextChangeTarget.y)}
             className="nodrag"
-            value={Math.round(data.y)}
+            value={Math.round(data.bbox.y)}
             size={5}
           />
         ) : (
@@ -92,13 +90,13 @@ export function TextNode({ data }: TextNodeProps) {
         )}
         <br />
         <label htmlFor="c">content: </label>
-        {data.content !== undefined ? (
+        {data.data.content !== undefined ? (
           <input
             id="c"
             name="text"
             onChange={(evt) => onChange(evt, TextChangeTarget.content)}
             className="nodrag"
-            value={data.content}
+            value={data.data.content}
           />
         ) : (
           <em>computed</em>

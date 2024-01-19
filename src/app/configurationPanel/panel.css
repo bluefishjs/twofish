@@ -1,0 +1,21 @@
+/* Formatting for all shapes nodes */
+.geo-panel {
+    padding: 1em;
+    width:100%;
+}
+
+.geo-panel label {
+    display: inline;
+    color: #777;
+    font-size: 12px;
+}
+
+.properties {
+    display: flex;
+    flex-direction:column;
+    gap:1em;
+}
+
+.header {
+    font-size:20px;
+}

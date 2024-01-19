@@ -1,18 +1,13 @@
 import { useCallback } from "react";
 import { Handle, Position } from "reactflow";
 import "./geoNode.css";
+import {Node} from "./node";
 
 export type EllipseNodeData = {
-  id?: string;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  onChange?: any;
 };
 
 export type EllipseNodeProps = {
-  data: EllipseNodeData;
+  data: Node<EllipseNodeData>;
 };
 
 // const handleStyle = { left: 10 };

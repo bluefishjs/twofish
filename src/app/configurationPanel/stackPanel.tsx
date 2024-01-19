@@ -1,19 +1,18 @@
 import { useCallback, useContext, useState } from "react";
-import { Handle, Position } from "reactflow";
-import "./stackNode.css";
-import { Alignment } from "./alignNode";
+import "./panel.css";
+import { Alignment } from "../nodes/alignNode";
 import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import { getStackLayout } from "../layoutUtils";
 
-export type StackNodeData = {
+export type StackPanelData = {
   direction: "horizontal" | "vertical";
   alignment: Alignment;
   spacing: number;
 };
 
-export type StackNodeProps = {
-  data: Node<StackNodeData>;
+export type StackPanelProps = {
+  data: Node<StackPanelData>;
 };
 
 enum StackChangeTarget {
@@ -23,7 +22,7 @@ enum StackChangeTarget {
   y,
 }
 
-export function StackNode({ data }: StackNodeProps) {
+export function StackPanel({ data }: StackPanelProps) {
   const [direction, setDirection] = useState(data.data.direction);
   const [alignment, setAlignment] = useState(data.data.alignment);
   const { nodes, setNodes } = useContext(NodesContext);
@@ -32,6 +31,8 @@ export function StackNode({ data }: StackNodeProps) {
 
   const onChange = useCallback(
     (evt: any, target: StackChangeTarget) => {
+      console.log(evt, target);
+
       const updatedDirection =
         target === StackChangeTarget.direction ? evt.target.value : direction;
       // TODO: add in interactive spacing change
@@ -39,7 +40,7 @@ export function StackNode({ data }: StackNodeProps) {
       if (target === StackChangeTarget.direction) {
         // set default spacing
         const newSpacing = data.data.spacing;
-        let newNodes;
+        let newNodes: any;
 
         let orderedNodes: any[] =
           data.childrenIds?.map(
@@ -87,6 +88,8 @@ export function StackNode({ data }: StackNodeProps) {
         const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
           getStackLayout(modifiedNodes, evt.target.value, data.id, newSpacing, true);
 
+        console.log(updatedPositions);
+
         if (!stackable) {
           console.log("[stack] can't change stack");
           return;
@@ -94,6 +97,7 @@ export function StackNode({ data }: StackNodeProps) {
 
         newNodes = nodes.map((node: any) => {
           if (node.id === data.id) {
+            console.log(node);
             return {
               ...node,
               data: {
@@ -111,28 +115,30 @@ export function StackNode({ data }: StackNodeProps) {
           return alteredNode;
         });
 
-        const newTreeNodes = treeNodes.map((node: any) => {
-          if (node.recordId === data.id) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                direction: evt.target.value,
-              },
-            };
-          }
-
-          const position = (data.childrenIds ?? []).indexOf(node.id);
-          if (position === -1) {
-            return node;
-          }
-          const alteredNode = sortedNodes[position].node;
-          return alteredNode;
-        });
-
+        console.log("New Nodes:", newNodes);
         setDirection(updatedDirection);
         setNodes((nodes: any) => newNodes);
-        setTreeNodes((nodes) => newTreeNodes);
+        setTreeNodes((treeNodes: any) => {
+          return treeNodes.map((node: any) => {
+            if (node.recordId === data.id) {
+              console.log(node);
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  direction: evt.target.value,
+                },
+              };
+            }
+
+            const position = (data.childrenIds ?? []).indexOf(node.id);
+            if (position === -1) {
+              return node;
+            }
+            const alteredNode = { ...node, ...sortedNodes[position].node };
+            return alteredNode;
+          });
+        });
         setEditor((editor: any) => editor?.updateShapes(updatedPositions));
       }
     },
@@ -141,39 +147,38 @@ export function StackNode({ data }: StackNodeProps) {
       data.data.spacing,
       data.childrenIds,
       data.id,
-      nodes,
-      treeNodes,
-      setNodes,
-      setTreeNodes,
       setEditor,
+      nodes,
+      setNodes,
+      treeNodes,
+      setTreeNodes,
     ]
   );
 
   return (
-    <div className="stack-node">
-      <div>
-        <b>Stack</b>
-      </div>
-      <Handle type="target" position={Position.Top} />
-      <div>
-        <input
-          type="radio"
-          name="direction"
-          value="horizontal"
-          onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
-          checked={direction === "horizontal"}
-        />
-        <label htmlFor="horizontal">horizontal</label>
-        <br />
-        <input
-          type="radio"
-          name="direction"
-          value="vertical"
-          onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
-          checked={direction === "vertical"}
-        />
-        <label htmlFor="vertical">vertical</label>
-        <br />
+    <div className="panel">
+      <h2 className="header">Stack</h2>
+      <div className="properties">
+        <div>
+          <input
+            type="radio"
+            name="direction"
+            value="horizontal"
+            onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
+            checked={direction === "horizontal"}
+          />
+          <label htmlFor="horizontal">horizontal</label>
+          <br />
+          <input
+            type="radio"
+            name="direction"
+            value="vertical"
+            onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
+            checked={direction === "vertical"}
+          />
+          <label htmlFor="vertical">vertical</label>
+          <br />
+        </div>
 
         {/* <label htmlFor="x">x: </label>
         {data.x !== undefined ? (
@@ -226,7 +231,6 @@ export function StackNode({ data }: StackNodeProps) {
             </select></>
           )} */}
       </div>
-      <Handle type="source" position={Position.Bottom} id="a" />
     </div>
   );
 }

@@ -1,9 +1,14 @@
-import { TLUiEventContextType, TLUiOverrides, useEvents } from "@tldraw/tldraw";
+import { TLUiEventContextType, TLUiOverrides, menuGroup, menuItem, useEvents } from "@tldraw/tldraw";
+
 
 export const overrides: TLUiOverrides = {
   actions: (editor, actions, _helpers) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const trackEvent = useEvents();
+
+		function hasSelectedShapes() {
+			return editor.selectedIds.length > 0
+		}
 
     return {
       ...actions,
@@ -16,7 +21,7 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align left");
-          editor.alignShapes("left", editor.selectedIds);
+          // editor.alignShapes("left", editor.selectedIds);
         },
       },
       "align-center-horizontal": {
@@ -28,7 +33,7 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align center horizontal");
-          editor.alignShapes("center-horizontal", editor.selectedIds);
+          // editor.alignShapes("center-horizontal", editor.selectedIds);
         },
       },
       "align-right": {
@@ -40,7 +45,7 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align right");
-          editor.alignShapes("right", editor.selectedIds);
+          // editor.alignShapes("right", editor.selectedIds);
         },
       },
       "align-center-vertical": {
@@ -52,7 +57,7 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align center vertical");
-          editor.alignShapes("center-vertical", editor.selectedIds);
+          // editor.alignShapes("center-vertical", editor.selectedIds);
         },
       },
       "align-top": {
@@ -64,7 +69,7 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align top");
-          editor.alignShapes("top", editor.selectedIds);
+          // editor.alignShapes("top", editor.selectedIds);
         },
       },
       "align-bottom": {
@@ -76,9 +81,53 @@ export const overrides: TLUiOverrides = {
             ids: editor.selectedIds,
           } as any);
           editor.mark("align bottom");
-          editor.alignShapes("bottom", editor.selectedIds);
+          // editor.alignShapes("bottom", editor.selectedIds);
+        },
+      },
+      "stack-vertical": {
+        ...actions["stack-vertical"],
+				onSelect(source) {
+					if (editor.selectedIds.length === 0) return
+					// if (mustGoBackToSelectToolFirst()) return
+
+					trackEvent('stack-shapes', { operation: 'vertical', source , ids: editor.selectedIds} as any)
+					editor.mark('stack-vertical')
+					// editor.stackShapes('vertical', editor.selectedIds, 16)
+				},
+			},
+			"stack-horizontal": {
+        ...actions["stack-horizontal"],
+				onSelect(source) {
+					if (!hasSelectedShapes()) return
+					// if (mustGoBackToSelectToolFirst()) return
+
+					trackEvent('stack-shapes', { operation: 'horizontal', source, ids: editor.selectedIds } as any)
+					editor.mark('stack-horizontal')
+					// editor.stackShapes('horizontal', editor.selectedIds, 16)
+				},
+			},
+      "add-background": {
+        id: "add-background",
+        action: "add-background",
+        label: "Add Background",
+        readonlyOk: false,
+        onSelect(source) {
+          console.log("add background");
+          trackEvent("add-background", {
+            source,
+            ids: editor.selectedIds,
+          } as any);
+          editor.mark("add background");
         },
       },
     };
   },
+  contextMenu(editor, contextMenu, { actions, oneSelected }) {
+    if(oneSelected) {
+      const backgroundMenuItem = menuItem(actions['add-background'])
+      if(contextMenu[1].id === "modify" && contextMenu[1].children !== undefined)
+        contextMenu[1].children = [...contextMenu[1].children, backgroundMenuItem];
+    }
+		return contextMenu
+	},
 };
