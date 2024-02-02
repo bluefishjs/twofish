@@ -1,8 +1,10 @@
 import { useCallback, useContext } from "react";
 import "./panel.css";
-import { EditorContext } from "../editor";
+import { EditorContext, TreeNodesContext } from "../editor";
 import { isNumeric } from "../utils";
 import { Node } from "./node";
+import { relayout } from "../layoutUtils";
+import _ from "lodash";
 
 export type TextPanelData = {
   content?: string;
@@ -20,9 +22,12 @@ enum TextChangeTarget {
 
 export function TextPanel({ data }: TextPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
+  const {treeNodes, setTreeNodes} = useContext(TreeNodesContext);
 
   const onChange = useCallback((evt: any, target: TextChangeTarget) => {
     console.log(evt);
+
+    let updatedData = {...data};
     let updatedValues: any = {
       id: data.id,
       type: "geo",
@@ -34,6 +39,7 @@ export function TextPanel({ data }: TextPanelProps) {
           console.log("can't update content with empty string");
         }
         updatedValues.props.text = evt.target.value;
+        updatedData.data.content = evt.target.value;
         break;
       case TextChangeTarget.x:
         if (!isNumeric(evt.target.value)) {
@@ -41,6 +47,7 @@ export function TextPanel({ data }: TextPanelProps) {
           return;
         }
         updatedValues.x = +evt.target.value as number;
+        updatedData.bbox.x = +evt.target.value as number;
         break;
       case TextChangeTarget.y:
         if (!isNumeric(evt.target.value)) {
@@ -48,9 +55,23 @@ export function TextPanel({ data }: TextPanelProps) {
           return;
         }
         updatedValues.y = +evt.target.value as number;
+        updatedData.bbox.y = +evt.target.value as number;
         break;
     }
-    editor.updateShapes([updatedValues]);
+    const index = _.findIndex(
+      treeNodes,
+      (node: any) => node.recordId === data.id
+    );
+    const { updatedNodes, positionsToUpdate } = relayout(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) return treeNode;
+        return { ...treeNode, data: updatedData };
+      }),
+      index
+    );
+    setTreeNodes(updatedNodes);
+    editor.updateShapes([updatedValues]).updateShapes(positionsToUpdate);
+    
   }, []);
 
   return (
@@ -90,7 +111,7 @@ export function TextPanel({ data }: TextPanelProps) {
         <div>
           <label htmlFor="c">content: </label>
           {data.data.content !== undefined ? (
-            <input
+            <textarea
               id="c"
               name="text"
               onChange={(evt) => onChange(evt, TextChangeTarget.content)}

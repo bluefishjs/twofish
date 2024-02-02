@@ -1,40 +1,63 @@
-import { EditorContext, NodesContext, SelectionContext } from "../editor";
+import {
+  EditorContext,
+  NodesContext,
+  SelectionContext,
+  TreeNodesContext,
+} from "../editor";
 import { useContext } from "react";
 import { RectNode } from "../nodes/rectNode";
 import { GeoPanel } from "./geoPanel";
 import { StackPanel } from "./stackPanel";
 import { TextPanel } from "./textPanel";
+import _ from "lodash";
+import { AlignPanel } from "./alignPanel";
+import { Component } from "./node";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
-  let selectedRecordId = selectedTreeNodes[0] !== undefined ? selectedTreeNodes[0].recordId : undefined;
+  const { treeNodes } = useContext(TreeNodesContext);
+  let selectedRecordId =
+    selectedTreeNodes[0] !== undefined
+      ? selectedTreeNodes[0]
+      : undefined;
+  const selectedRecord = _.find(
+    treeNodes,
+    (node) => node.recordId === selectedRecordId
+  );
   let configInfo = <></>;
-  if(selectedTreeNodes.length === 1) {
-    if(selectedTreeNodes[0] !== undefined) {
-      switch(selectedTreeNodes[0].name) {
-        case "Stack":
-          configInfo = <StackPanel {...selectedTreeNodes[0]}/>
+  if (selectedTreeNodes.length === 1) {
+    if (selectedRecord !== undefined) {
+      switch (selectedRecord.name) {
+        case Component.Stack:
+          configInfo = <StackPanel {...selectedRecord} />;
           break;
-        case "Rect":
-          configInfo = <GeoPanel {...selectedTreeNodes[0]}/>
+        case Component.Align:
+          configInfo = <AlignPanel {...selectedRecord} />;
           break;
-        case "Ellipse":
-          configInfo = <GeoPanel {...selectedTreeNodes[0]}/>
+        case Component.Rect:
+          configInfo = <GeoPanel {...selectedRecord} />;
           break;
-        case "Text":
-          configInfo = <TextPanel {...selectedTreeNodes[0]}/>
+        case Component.Ellipse:
+          configInfo = <GeoPanel {...selectedRecord} />;
+          break;
+        case Component.Text:
+          configInfo = <TextPanel {...selectedRecord} />;
           break;
         default:
-          configInfo = <h2>{selectedTreeNodes[0].name} </h2>
+          configInfo = <h2>{selectedRecord.name} </h2>;
           break;
       }
     }
-   
   }
   return selectedTreeNodes.length > 0 && selectedRecordId !== undefined ? (
-    selectedTreeNodes.length > 1 ? <div>More than 1 object selected</div> :
-    <div><div>{selectedRecordId} selected</div>
-    {configInfo}</div>
+    selectedTreeNodes.length > 1 ? (
+      <div>More than 1 object selected</div>
+    ) : (
+      <div>
+        <div>{selectedRecordId} selected</div>
+        {configInfo}
+      </div>
+    )
   ) : (
     <div>No nodes selected</div>
   );

@@ -21,11 +21,12 @@ export enum Component {
     Align="Align",
     Stack="Stack",
     Background="Background",
+    Group="Group",
     Other="Other"
   };
 
 export type Node<T> = {
-    id?: string;
+    id: string;
     name?: Component;
     bbox: BBox;
     owned: BBoxWithOwner;

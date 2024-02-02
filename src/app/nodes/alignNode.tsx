@@ -2,22 +2,21 @@ import { useCallback, useContext, useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./alignNode.css";
 import { EditorContext, NodesContext } from "../editor";
+import {Node} from "./node";
 
 export type HorizontalAlignment = "left" | "center-horizontal" | "right";
 export type VerticalAlignment = "top" | "center-vertical" | "bottom";
 
 export type Alignment = HorizontalAlignment | VerticalAlignment;
 export type AlignNodeData = {
-  id?: string;
   alignment: Alignment;
-  childrenIds: string[];
   // Alignment should either define just x position, just y position, or both
   x?: number;
   y?: number;
 };
 
 export type AlignNodeProps = {
-  data: AlignNodeData;
+  data: Node<AlignNodeData>;
 };
 
 enum ChangeTarget {
@@ -27,7 +26,7 @@ enum ChangeTarget {
 }
 
 export function AlignNode({ data }: AlignNodeProps) {
-  const [alignment, setAlignment] = useState(data.alignment);
+  const [alignment, setAlignment] = useState(data.data.alignment);
   const { nodes, setNodes } = useContext(NodesContext);
   const { editor, setEditor } = useContext(EditorContext);
 
@@ -37,38 +36,39 @@ export function AlignNode({ data }: AlignNodeProps) {
       switch (changeTarget) {
         case ChangeTarget.alignment:
           setAlignment(evt.target.value);
-          alignmentData = { ...data, alignment: evt.target.value };
+          alignmentData = { ...data.data, alignment: evt.target.value };
           break;
         case ChangeTarget.x:
           if (x === "") {
             console.log("Can't update empty x");
             return;
           }
-          alignmentData = { ...data, x: +evt.target.value };
+          alignmentData = { ...data.data, x: +evt.target.value };
           break;
         case ChangeTarget.y:
           if (y === "") {
             console.log("Can't update empty y");
             return;
           }
-          alignmentData = { ...data, y: +evt.target.value };
+          alignmentData = { ...data.data, y: +evt.target.value };
           break;
         default:
-          alignmentData = { ...data };
+          alignmentData = { ...data.data };
           break;
       }
       const updatedShapes: any = [];
 
       setNodes(nodes.map((node: any) => {
-          if (node.id === alignmentData.id) {
+          if (node.id === data.id) {
             return {
               ...node,
               data: {
-                ...alignmentData,
+                ...node.data,
+                data: {...alignmentData},
               },
             };
           }
-          if (!alignmentData.childrenIds.includes(node.id)) return node;
+          if (!data.childrenIds.includes(node.id)) return node;
 
           // switch from vertical to horizontal alignment
           if (

@@ -39,7 +39,8 @@ import { overrides } from "./overrides";
 import { getBBox } from "./utils";
 import { TreeView } from "./treeView/tree";
 import { Panel } from "./configurationPanel/panel";
-import { getAlignAxes, getStackLayout } from "./layoutUtils";
+import { getAlignAxes, getAlignLayout, getStackLayout } from "./layoutUtils";
+import { node } from "webpack";
 
 export const EditorContext = createContext<any>(undefined);
 export const NodesContext = createContext<any>(undefined);
@@ -51,11 +52,25 @@ export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
   const [selectedNodes, setSelectedNodes] = useState(Array<string>());
   const [selectedTreeNodes, setSelectedTreeNodes] = useState(Array<any>());
+  const [selectedTreeRelations, setSelectedTreeRelations] = useState(
+    Array<any>()
+  );
   const [selectedShapeIds, setSelectedShapeIds] = useState(Array<string>());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const [treeNodes, setTreeNodes] = useState(Array<any>());
+
+  const flowNodes = useMemo(
+    () =>
+      treeNodes.map((treeNode) => ({
+        id: treeNode.recordId,
+        type: treeNode.nodeType,
+        position: treeNode.position,
+        data: treeNode.data,
+      })),
+    [treeNodes]
+  );
 
   const nodeTypes = useMemo(
     () => ({
@@ -113,8 +128,15 @@ export default function Editor() {
     () => ({
       selectedTreeNodes,
       setSelectedTreeNodes,
+      selectedTreeRelations,
+      setSelectedTreeRelations,
     }),
-    [selectedTreeNodes, setSelectedTreeNodes]
+    [
+      selectedTreeNodes,
+      setSelectedTreeNodes,
+      selectedTreeRelations,
+      setSelectedTreeRelations,
+    ]
   );
 
   const memoizedSelectedNodes = useMemo(
@@ -134,13 +156,13 @@ export default function Editor() {
   const [uiEvents, setUiEvents] = useState<string[]>([]);
   const handleUiEvent = useCallback<TLUiEventHandler>(
     (name, data) => {
-      console.log(name, data);
+      console.log("[UI EVENT]", name, data);
       setUiEvents((events) => [`${name} ${JSON.stringify(data)}`, ...events]);
 
       const uid = uniqueId();
 
       if (name === "align-shapes") {
-        setNodes((nodes) => {
+        setTreeNodes((nodes) => {
           console.log("[UI Event]: Nodes:", nodes);
 
           setEdges((edges) => {
@@ -160,118 +182,63 @@ export default function Editor() {
           const operation = (data as any).operation;
           const ids = (data as any).ids;
           const childrenInfo: Array<any> = [];
+          const selectedNodeData = nodes
+            .filter((node) => ids.includes(node.recordId))
+            .map((node) => node.data);
+          const {
+            alignable,
+            alignX,
+            alignY,
+            updatedPositions,
+            updatedNodeData,
+          } = getAlignLayout(selectedNodeData, operation, uid);
 
-          let alignAxes = getAlignAxes(
-            nodes.filter((node) => ids.includes(node.id)),
-            operation
-          );
-
-          if (alignAxes === false) {
+          if (alignable === false) {
             console.log(
+              "[Align] Unable to align as contradictory positions determined"
+            );
+            alert(
               "[Align] Unable to align as contradictory positions determined"
             );
             return nodes;
           }
-          let { alignX, alignY } = alignAxes;
-          const nodesToUpdate: any[] = [];
+
           const removedPositions = nodes.map((node) => {
-            if (!ids.includes(node.id)) return node;
+            if (!ids.includes(node.recordId)) return node;
 
             childrenInfo.push({
               id: uniqueId(),
-              recordId: node.id,
+              recordId: node.recordId,
               name: node.data.name,
+              type: node.data.type,
             });
 
-            const updatedNode = { ...node };
-
-            // TODO: the 0 should never actually be reached, but think of a better way to do this
-            if (
-              operation === "left" ||
-              operation === "center-horizontal" ||
-              operation === "right"
-            ) {
-              updatedNode.data.bbox.x = undefined;
-              updatedNode.data.owned.xOwner = uid;
-              switch (operation) {
-                case "left":
-                  updatedNode.data.owned.x = alignX ?? 0;
-                  break;
-                case "center-horizontal":
-                  updatedNode.data.owned.x =
-                    (alignX ?? 0) - updatedNode.data.bbox.width / 2;
-                  break;
-                case "right":
-                  updatedNode.data.owned.x =
-                    (alignX ?? 0) - updatedNode.data.bbox.width;
-                  break;
-              }
-              nodesToUpdate.push({
-                id: updatedNode.id,
-                type: "geo",
-                x: updatedNode.data.owned.x,
-              });
-            } else {
-              updatedNode.data.bbox.y = undefined;
-              updatedNode.data.owned.yOwner = uid;
-              switch (operation) {
-                case "top":
-                  updatedNode.data.owned.y = alignY ?? 0;
-                  break;
-                case "center-vertical":
-                  updatedNode.data.owned.y =
-                    (alignY ?? 0) - updatedNode.data.bbox.height / 2;
-                  break;
-                case "bottom":
-                  updatedNode.data.owned.y =
-                    (alignY ?? 0) - updatedNode.data.bbox.height;
-                  break;
-              }
-              nodesToUpdate.push({
-                id: updatedNode.id,
-                type: "geo",
-                y: updatedNode.data.owned.y,
-              });
-            }
-
-            return updatedNode;
+            return {
+              ...node,
+              data: _.find(updatedNodeData, (data) => data.id === node.id),
+            };
           });
 
-          setEditor((editor) => editor?.updateShapes(nodesToUpdate));
+          setEditor((editor) => editor?.updateShapes(updatedPositions));
 
-          setTreeNodes((nodes) =>
-            nodes.concat({
-              id: uniqueId(),
-              name: Component.Align,
-              type: "alignNode",
-              children: childrenInfo,
-              recordId: uid,
-              data: {
-                id: uid,
-                childrenIds: (data as any).ids, 
-                bbox: undefined,
-                data: {
-                  x: alignX,
-                  y: alignY,
-                  alignment: (data as any).operation,
-                }
-              },
-            })
-          );
           return removedPositions.concat({
             id: uid,
-            type: "alignNode",
+            name: Component.Align,
+            type: Component.Align,
+            nodeType: "alignNode",
+
             position: { x: 300, y: 150 },
-            style: {
-              width: 100,
-            },
+            children: childrenInfo,
+            recordId: uid,
             data: {
               id: uid,
-              name: Component.Align,
-              alignment: (data as any).operation,
               childrenIds: (data as any).ids,
-              x: alignX,
-              y: alignY,
+              bbox: undefined,
+              data: {
+                x: alignX,
+                y: alignY,
+                alignment: (data as any).operation,
+              },
             },
           });
         });
@@ -279,25 +246,16 @@ export default function Editor() {
         let selectedIds = (data as any).ids;
         const operation = (data as any).operation;
 
-        // TODO: How to do alignment:
-        // -> First pass to see whether there are any nodes whose positions are already computed in the stack
-        // -> If there is more than 1, check that they match specifications and then distribute everything based on that
-        //    -> Alignment probably should be different based on how the stack actually aligns
-        // -> If there's only 1, use that position as reference
-        // -> If no positions set, just center align them
-
-        setNodes((nodes) => {
-          let selectedNodes = nodes.filter((node) =>
-            selectedIds.includes(node.id)
-          ); // selected nodes
+        setTreeNodes((nodes) => {
+          let selectedNodes = nodes
+            .filter((node) => selectedIds.includes(node.recordId))
+            .map((node) => node.data); // selected nodes
 
           let fixedIds = selectedNodes
             .filter(
-              (node) =>
-                node.data.owned.x !== undefined ||
-                node.data.owned.y !== undefined
+              (data) => data.owned.x !== undefined || data.owned.y !== undefined
             )
-            .map((node) => node.id);
+            .map((data) => data.id);
           const result = getStackLayout(selectedNodes, operation, uid);
           const {
             stackable,
@@ -308,7 +266,8 @@ export default function Editor() {
           } = result;
 
           if (!stackable) {
-            console.log("Can't stack items");
+            console.log("[Stack] Can't stack items");
+            alert("[Stack] Can't stack items");
             return nodes;
           }
 
@@ -325,83 +284,54 @@ export default function Editor() {
             )
           );
 
-          const sortedIds = sortedNodes.map(({ node }) => node.id);
+          const sortedIds = sortedNodes.map(({ data }) => data.id);
           const childrenInfo: any[] = [];
 
           const removedPositions = nodes.map((node) => {
-            if (!selectedIds.includes(node.id as TLShapeId)) {
+            if (!selectedIds.includes(node.recordId as TLShapeId)) {
               return node;
             }
 
-            const stackPosition = sortedIds.findIndex((id) => id === node.id);
+            childrenInfo.push({
+              id: uniqueId(),
+              recordId: node.id,
+              name: node.data.name,
+              type: node.data.type,
+            });
+
+            const stackPosition = sortedIds.findIndex(
+              (id) => id === node.recordId
+            );
 
             return {
               ...node,
-              data: { ...sortedNodes[stackPosition].node.data },
+              data: { ...sortedNodes[stackPosition].data },
             };
           });
 
           setEditor((editor) => editor?.updateShapes(updatedPositions));
           const childrenBBoxes = getBBox(
-            sortedNodes.map((node) => ({
-              x: node.node.data.owned.x,
-              y: node.node.data.owned.y,
-              width: node.node.data.bbox.width,
-              height: node.node.data.bbox.height,
+            sortedNodes.map(({ data }) => ({
+              x: data.owned.x,
+              y: data.owned.y,
+              width: data.bbox.width,
+              height: data.bbox.height,
             }))
           );
-          setTreeNodes((nodes) =>
-            nodes
-              .map((node) => {
-                if (!selectedIds.includes(node.id as TLShapeId)) return node;
-                childrenInfo.push({
-                  id: uniqueId(),
-                  recordId: node.id,
-                  name: node.data.name,
-                });
-                const stackPosition = sortedIds.findIndex(
-                  (id) => id === node.id
-                );
 
-                return {
-                  ...node,
-                  data: { ...sortedNodes[stackPosition].node.data },
-                };
-              })
-              .concat({
-                id: uid,
-                name: Component.Stack,
-                type: "stackNode",
-                children: childrenInfo,
-                recordId: uid,
-                data: {
-                  id: uid,
-                  data: {
-                    direction: (data as any).operation,
-                    alignment: alignment,
-                    spacing: spacing,
-                  },
-                  bbox: {
-                    ...childrenBBoxes,
-                  },
-                  childrenIds: sortedIds,
-                  fixedIds: fixedIds,
-                },
-              })
-          );
           return removedPositions.concat({
             id: uid,
-            type: "stackNode",
+            name: Component.Stack,
+            type: Component.Stack,
+            nodeType: "stackNode",
             position: {
-              x: sortedNodes[0].node.data.owned.x + 5,
-              y: sortedNodes[0].node.data.owned.y + 5,
+              x: sortedNodes[0].data.owned.x + 5,
+              y: sortedNodes[0].data.owned.y + 5,
             },
-            style: {
-              width: 100,
-            },
+            children: childrenInfo,
+            recordId: uid,
             data: {
               id: uid,
-              name: Component.Stack,
               data: {
                 direction: (data as any).operation,
                 alignment: alignment,
@@ -411,13 +341,12 @@ export default function Editor() {
                 ...childrenBBoxes,
               },
               childrenIds: sortedIds,
+              fixedIds: fixedIds,
             },
           });
         });
       } else if (name === "add-background") {
         // type error exists because custom menu option
-        console.log("add background called");
-
         const selectedIds = (data as any).ids;
         setEditor((editor) => {
           setTreeNodes((treeNodes: any) => {
@@ -425,10 +354,10 @@ export default function Editor() {
               selectedIds.includes(node.id)
             ); // selected nodes
             const childBBoxes = selectedNodes.map((node: any) => ({
-              x: node.data.bbox.x ?? node.data.owned.x,
-              y: node.data.bbox.y ?? node.data.owned.y,
-              width: node.data.bbox.width ?? node.data.owned.width,
-              height: node.data.bbox.height ?? node.data.owned.height,
+              x: node.data.bbox.x ?? node.data.owned.x ?? 0,
+              y: node.data.bbox.y ?? node.data.owned.y ?? 0,
+              width: node.data.bbox.width ?? node.data.owned.width ?? 0,
+              height: node.data.bbox.height ?? node.data.owned.height ?? 0,
             }));
             const groupBBox = getBBox(childBBoxes);
             console.log(
@@ -459,28 +388,14 @@ export default function Editor() {
               ]);
               editor.reorderShapes("toBack", [id]);
             });
-            setNodes((nodes) =>
-              nodes.concat({
-                id: id,
-                type: "geoNode",
-                position: { x: backgroundBBox.x, y: backgroundBBox.y },
-                data: {
-                  id: id,
-                  name: "background",
-                  bbox: { ...backgroundBBox },
-                  owned: {},
-                  childrenIds: selectedNodes.map((node: any) => node.id),
-                  data: {
-                    padding: 10,
-                  },
-                },
-              })
-            );
+
             return treeNodes.concat({
               id: id,
               recordId: id,
-              name: "background",
-              type: "backgroundNode",
+              name: Component.Background,
+              type: Component.Background,
+              nodeType: "backgroundNode",
+              position: { x: backgroundBBox.x, y: backgroundBBox.y },
               children: selectedNodes.map((node) => ({
                 id: uniqueId(),
                 recordId: node.id,
@@ -507,7 +422,7 @@ export default function Editor() {
         console.log(data);
       }
     },
-    [setEdges, setNodes, EdgeTypes.Align, EdgeTypes.Stack]
+    [setEdges, EdgeTypes.Align, EdgeTypes.Stack]
   );
 
   const setAppToState = useCallback((editor: EditorType) => {
@@ -566,96 +481,68 @@ export default function Editor() {
                 },
               };
 
-              setTreeNodes((nodes) =>
-                nodes.concat({
+              setTreeNodes((nodes) => {
+                if (
+                  name === Component.Rect &&
+                  _.find(nodes, (node) => node.recordId === record.id)
+                ) {
+                  // indicates that this was a background node, so we don't need to add it
+                  return nodes;
+                }
+                return nodes.concat({
                   id: record.id,
                   recordId: record.id,
                   name: shapeName,
-                  type: "geoNode",
-                  data: data,
-                })
-              );
-
-              setNodes((nodes) =>
-                nodes.concat({
-                  id: record.id,
-                  type: "geoNode",
+                  type: shapeName,
+                  nodeType: "geoNode",
                   position: { x: record.x, y: record.y },
-                  style: {
-                    width: 100,
-                  },
                   data: data,
-                })
-              );
+                });
+              });
             } else if (editor.isShapeOfType(record, GroupShapeUtil)) {
               const childrenIds = editor
                 .getSortedChildIds(record.id)
                 .filter((id) => typeof id === "string") as string[];
 
-              setNodes((nodes) => {
-                const childNodes = nodes.filter((node) =>
-                  childrenIds.includes(node.id)
-                );
-                const childNodeBBoxes = childNodes.map((node) => {
-                  const { width, height } = node.style as {
-                    width: number;
-                    height: number;
-                  };
-                  return {
-                    x: node.position.x,
-                    y: node.position.y,
-                    width,
-                    height,
-                  };
-                });
-                const bbox = getBBox(childNodeBBoxes);
-                const position = {
-                  x: bbox.x - 5,
-                  y: bbox.y - 5,
-                };
+              setTreeNodes((treeNodes) => {
+                let selectedNodes = treeNodes.filter((node: any) =>
+                  childrenIds.includes(node.recordId)
+                ); // selected nodes
+                const childBBoxes = selectedNodes.map((node: any) => ({
+                  x: node.data.bbox.x ?? node.data.owned.x,
+                  y: node.data.bbox.y ?? node.data.owned.y,
+                  width: node.data.bbox.width ?? node.data.owned.width,
+                  height: node.data.bbox.height ?? node.data.owned.height,
+                }));
+                const groupBBox = getBBox(childBBoxes);
 
-                return [
-                  {
-                    id: record.id,
-                    position,
-                    data: {
-                      ...data,
-                      label: record.type,
-                      childrenIds: childrenIds,
-                    },
-                    style: {
-                      backgroundColor: "rgba(255, 0, 255, 0.2)",
-                      width: bbox.width + 10,
-                      height: bbox.height + 10,
-                    },
+                // TODO: in reactFlow, we use parentNode to set group as each element's parent; do that here?
+                return treeNodes.concat({
+                  id: record.id,
+                  recordId: record.id,
+                  name: Component.Group,
+                  type: Component.Group,
+                  nodeType: "groupNode",
+                  position: { x: groupBBox, y: groupBBox },
+                  children: selectedNodes.map((node) => ({
+                    id: uniqueId(),
+                    recordId: node.recordId,
+                    name: node.name,
+                    type: node.type,
+                  })),
+                  data: {
+                    childrenIds: childrenIds,
+                    bbox: groupBBox,
                   },
-                  ...nodes,
-                ];
-              });
-
-              setNodes((nodes) => {
-                const parentPosition = nodes.find(
-                  (n) => n.id === record.id
-                )!.position;
-                return nodes.map((node) => {
-                  if (childrenIds.includes(node.id)) {
-                    return {
-                      ...node,
-                      position: {
-                        x: node.position.x - parentPosition.x,
-                        y: node.position.y - parentPosition.y,
-                      },
-                      parentNode: record.id,
-                    };
-                  }
-                  return node;
                 });
               });
             } else if (editor.isShapeOfType(record, ArrowShapeUtil)) {
-              setNodes((nodes) =>
+              setTreeNodes((nodes) =>
                 nodes.concat({
                   id: record.id,
-                  type: "arrowNode",
+                  name: Component.Arrow,
+                  type: Component.Arrow,
+                  nodeType: "arrowNode",
                   position: { x: record.x, y: record.y },
                   data: {
                     ...data,
@@ -672,34 +559,16 @@ export default function Editor() {
                   id: record.id,
                   recordId: record.id,
                   name: Component.Text,
-                  type: "textNode",
-                  data: {
-                    ...data,
-                    name: Component.Text,
-                    bbox: {
-                      ...data.bbox,
-                      width: record.props.w,
-                      height: 0, // height isn't given for text, find out a way to measure
-                    },
-                    data: {
-                      content: record.props.text,
-                    },
-                  },
-                })
-              );
-              setNodes((nodes) =>
-                nodes.concat({
-                  id: record.id,
-                  type: "textNode",
+                  type: Component.Text,
+                  nodeType: "textNode",
                   position: { x: record.x, y: record.y },
-                  style: {},
                   data: {
                     ...data,
                     name: Component.Text,
                     bbox: {
                       ...data.bbox,
                       width: record.props.w,
-                      height: 0, // height isn't given for text, find out a way to measure
+                      height: 16, // height isn't given for text, find out a way to measure
                     },
                     data: {
                       content: record.props.text,
@@ -709,9 +578,10 @@ export default function Editor() {
               );
             } else {
               console.log(record);
-              setNodes((nodes) =>
+              setTreeNodes((nodes) =>
                 nodes.concat({
                   id: record.id,
+                  name: record.type,
                   position: { x: record.x, y: record.y },
                   data: { label: record.type },
                 })
@@ -737,9 +607,9 @@ export default function Editor() {
             );
 
             if (from.type === "geo") {
-              setNodes((nodes) => {
+              setTreeNodes((nodes) => {
                 const updatedNodes = nodes.map((node) => {
-                  if (node.id === from.id) {
+                  if (node.recordId === from.id) {
                     // TODO GRACE:
                     // Debounce this?
                     // If moving 2 things and they're both aligned to each other, do we want to update the values?
@@ -771,8 +641,8 @@ export default function Editor() {
                 return updatedNodes;
               });
             } else if (from.type === "arrow") {
-              setNodes((nodes) => {
-                const updatedNodes = nodes.map((node) => {
+              setTreeNodes((nodes) => {
+                return nodes.map((node) => {
                   if (node.id === from.id) {
                     const data = { ...node.data };
                     if (to.x !== from.x) data.bbox.x = to.x;
@@ -824,7 +694,6 @@ export default function Editor() {
                   }
                   return node;
                 });
-                return updatedNodes;
               });
             } else if (from.type === "text") {
               setTreeNodes((nodes) => {
@@ -835,8 +704,13 @@ export default function Editor() {
                   if (to.x !== from.x) data.bbox.x = to.x;
                   if (to.y !== from.y) data.bbox.y = to.y;
                   if (to.props.w !== from.props.w) data.bbox.width = to.props.w;
-                  if (to.props.text !== from.props.text)
+                  if (to.props.text !== from.props.text) {
                     data.data.content = to.props.text;
+                    // TODO: make this better -- this is just a bandaid way to get the height of text
+                    data.bbox.height =
+                      20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
+                  }
+
                   return {
                     ...node,
                     data: data,
@@ -851,8 +725,12 @@ export default function Editor() {
                     if (to.y !== from.y) data.bbox.y = to.y;
                     if (to.props.w !== from.props.w)
                       data.bbox.width = to.props.w;
-                    if (to.props.text !== from.props.text)
+                    if (to.props.text !== from.props.text) {
                       data.data.content = to.props.text;
+                      // TODO: make this better -- this is just a bandaid way to get the height of text
+                      data.bbox.height =
+                        20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
+                    }
                     return {
                       ...node,
                       data: data,
@@ -867,39 +745,13 @@ export default function Editor() {
             from.typeName === "instance_page_state" &&
             to.typeName === "instance_page_state"
           ) {
+            console.log(from);
             // keep track of selected id's
             if (!_.isEqual(from.selectedIds, to.selectedIds)) {
               // TODO: Come up with a better solution to this. This works okay for now but is not great
               const toIds = to.selectedIds.map((id) => id as string);
-
-              setTreeNodes((treeNodes: any) => {
-                const newSelection = toIds.map(
-                  (id) =>
-                    treeNodes.filter((node: any) => node.recordId === id)[0]
-                );
-                setSelectedTreeNodes(newSelection);
-                return treeNodes;
-              });
-
-              setNodes((nodes) =>
-                nodes.map((node) => {
-                  if (
-                    toIds.length === 0 ||
-                    (node.type !== "alignNode" &&
-                      node.type !== "stackNode" &&
-                      !toIds.includes(node.id))
-                  ) {
-                    return { ...node, selected: false };
-                  }
-                  if (toIds.includes(node.id)) {
-                    return { ...node, selected: true };
-                  }
-                  if (memoizedSelectedNodes.selectedNodes.includes(node.id)) {
-                    return { ...node, selected: true };
-                  }
-                  return { ...node, selected: false };
-                })
-              );
+              if (selectedTreeRelations.length === 0)
+                setSelectedTreeNodes(toIds);
             }
           }
         }
@@ -956,7 +808,7 @@ export default function Editor() {
     return () => {
       editor.off("change", handleChangeEvent);
     };
-  }, [editor, memoizedSelectedNodes.selectedNodes, setEdges, setNodes]);
+  }, [editor, selectedTreeRelations.length, setEdges, setNodes]);
 
   return (
     <EditorContext.Provider value={editorContextValue}>
@@ -993,15 +845,15 @@ export default function Editor() {
                     <div style={{ width: "100vw", height: "100vh" }}>
                       <Panel />
                       {/* <ReactFlowProvider>
-                      <ReactFlow
-                        nodeTypes={nodeTypes}
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onSelectionChange={onSelectionChange}
-                      />
-                    </ReactFlowProvider> */}
+                        <ReactFlow
+                          nodeTypes={nodeTypes}
+                          nodes={flowNodes}
+                          edges={edges}
+                          onNodesChange={onNodesChange}
+                          onEdgesChange={onEdgesChange}
+                          onSelectionChange={onSelectionChange}
+                        />
+                      </ReactFlowProvider> */}
                     </div>
                   </div>
                 </div>

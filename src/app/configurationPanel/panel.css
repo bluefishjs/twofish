@@ -19,3 +19,7 @@
 .header {
     font-size:20px;
 }
+
+input {
+    width: 5em;
+}

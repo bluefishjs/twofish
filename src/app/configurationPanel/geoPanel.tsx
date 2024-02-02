@@ -1,7 +1,9 @@
 import { useCallback, useContext } from "react";
 import "./panel.css";
-import { EditorContext } from "../editor";
+import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
+import _ from "lodash";
+import { relayout } from "../layoutUtils";
 
 export type GeoPanelData = {
   shapeName: string;
@@ -14,6 +16,9 @@ export type GeoPanelProps = {
 export function GeoPanel({ data }: GeoPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
 
+  const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
+
+  const updatedData = { ...data };
   const onChange = useCallback((evt: any) => {
     let updatedValues: any = {
       id: data.id,
@@ -25,12 +30,17 @@ export function GeoPanel({ data }: GeoPanelProps) {
     const targetValue = evt.target.value;
     if (targetId === "w") {
       updatedValues.props = { w: +targetValue as number };
+      updatedData.bbox.width = +targetValue as number;
     } else if (targetId === "h") {
       updatedValues.props = { h: +targetValue as number };
+      updatedData.bbox.height = +targetValue as number;
     } else if (targetId === "x") {
       updatedValues = { ...updatedValues, x: +targetValue as number };
+      updatedData.bbox.x = +targetValue as number;
     } else if (targetId === "y") {
       updatedValues = { ...updatedValues, y: +targetValue as number };
+
+      updatedData.bbox.y = +targetValue as number;
     } else {
       return;
     }
@@ -39,7 +49,21 @@ export function GeoPanel({ data }: GeoPanelProps) {
       console.log("[Rect] Can't make empty string ");
       return;
     }
-    setEditor((editor: any) => editor?.updateShapes([updatedValues]));
+    const index = _.findIndex(
+      treeNodes,
+      (node: any) => node.recordId === data.id
+    );
+    const { updatedNodes, positionsToUpdate } = relayout(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) return treeNode;
+        return { ...treeNode, data: updatedData };
+      }),
+      index
+    );
+    setTreeNodes(updatedNodes);
+    setEditor((editor: any) =>
+      editor?.updateShapes([updatedValues]).updateShapes(positionsToUpdate)
+    );
   }, []);
 
   return (
@@ -52,9 +76,8 @@ export function GeoPanel({ data }: GeoPanelProps) {
           {data.bbox.x !== undefined ? (
             <input
               id="x"
-              name="text"
               onChange={onChange}
-              className="nodrag"
+              type="number"
               value={Math.round(data.bbox.x)}
               size={5}
             />
@@ -67,9 +90,8 @@ export function GeoPanel({ data }: GeoPanelProps) {
           {data.bbox.y !== undefined ? (
             <input
               id="y"
-              name="text"
+              type="number"
               onChange={onChange}
-              className="nodrag"
               value={Math.round(data.bbox.y)}
               size={5}
             />
@@ -83,9 +105,8 @@ export function GeoPanel({ data }: GeoPanelProps) {
           {data.bbox.width !== undefined ? (
             <input
               id="w"
-              name="text"
+              type="number"
               onChange={onChange}
-              className="nodrag"
               value={Math.round(data.bbox.width)}
               size={5}
             />
@@ -98,9 +119,8 @@ export function GeoPanel({ data }: GeoPanelProps) {
           {data.bbox.height !== undefined ? (
             <input
               id="h"
-              name="text"
               onChange={onChange}
-              className="nodrag"
+              type="number"
               value={Math.round(data.bbox.height)}
               size={5}
             />

@@ -39,53 +39,28 @@ export function StackNode({ data }: StackNodeProps) {
       if (target === StackChangeTarget.direction) {
         // set default spacing
         const newSpacing = data.data.spacing;
-        let newNodes;
+        let newNodes: any;
 
         let orderedNodes: any[] =
-          data.childrenIds?.map(
+          (data.childrenIds?.map(
             (selectedId: any) =>
               nodes.filter((node: any) => node.id === selectedId)[0]
-          ) ?? []; // TODO: figure out a better way to do this :") this is pretty bad
+          ) ?? []).map((node) => node.data); // TODO: figure out a better way to do this :") this is pretty bad
         let pivotNode: any = orderedNodes[0];
 
-        // try stacking with bboxes given back to nodes
-        let modifiedNodes = orderedNodes.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            bbox: {
-              ...node.data.bbox,
-              x:
-                node.data.owned.xOwner === data.id
-                  ? node.data.owned.x
-                  : undefined,
-              y:
-                node.data.owned.yOwner === data.id
-                  ? node.data.owned.y
-                  : undefined,
-            },
-            owned: {
-              ...node.data.owned,
-              x:
-                node.data.owned.xOwner === data.id
-                  ? undefined
-                  : node.data.owned.x,
-              y:
-                node.data.owned.yOwner === data.id
-                  ? undefined
-                  : node.data.owned.y,
-              xOwner: node.data.owned.xOwner === data.id ? undefined : data.id,
-              yOwner: node.data.owned.yOwner === data.id ? undefined : data.id,
-            },
-          },
-        }));
 
         if (!data.id) {
           return;
         }
 
         const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
-          getStackLayout(modifiedNodes, evt.target.value, data.id, newSpacing, true);
+          getStackLayout(
+            orderedNodes,
+            evt.target.value,
+            data.id,
+            newSpacing,
+            true
+          );
 
         if (!stackable) {
           console.log("[stack] can't change stack");
@@ -131,22 +106,12 @@ export function StackNode({ data }: StackNodeProps) {
         });
 
         setDirection(updatedDirection);
-        setNodes((nodes: any) => newNodes);
-        setTreeNodes((nodes) => newTreeNodes);
+        // setNodes((nodes: any) => newNodes);
+        setTreeNodes(newTreeNodes);
         setEditor((editor: any) => editor?.updateShapes(updatedPositions));
       }
     },
-    [
-      direction,
-      data.data.spacing,
-      data.childrenIds,
-      data.id,
-      nodes,
-      treeNodes,
-      setNodes,
-      setTreeNodes,
-      setEditor,
-    ]
+    [direction, data.data.spacing, data.childrenIds, data.id, nodes, treeNodes, setTreeNodes, setEditor]
   );
 
   return (

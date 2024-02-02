@@ -3,7 +3,8 @@ import "./panel.css";
 import { Alignment } from "../nodes/alignNode";
 import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
-import { getStackLayout } from "../layoutUtils";
+import { getStackLayout, relayout } from "../layoutUtils";
+import _ from "lodash";
 
 export type StackPanelData = {
   direction: "horizontal" | "vertical";
@@ -18,141 +19,95 @@ export type StackPanelProps = {
 enum StackChangeTarget {
   direction,
   alignment,
-  x,
-  y,
+  spacing,
 }
 
 export function StackPanel({ data }: StackPanelProps) {
   const [direction, setDirection] = useState(data.data.direction);
   const [alignment, setAlignment] = useState(data.data.alignment);
-  const { nodes, setNodes } = useContext(NodesContext);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
 
   const onChange = useCallback(
     (evt: any, target: StackChangeTarget) => {
-      console.log(evt, target);
-
       const updatedDirection =
         target === StackChangeTarget.direction ? evt.target.value : direction;
-      // TODO: add in interactive spacing change
 
+      const updatedSpacing: number =
+        target === StackChangeTarget.spacing
+          ? (+evt.target.value as number)
+          : data.data.spacing;
+
+      let orderedNodes: any[] = (
+        data.childrenIds?.map(
+          (selectedId: any) =>
+            treeNodes.filter((node: any) => node.recordId === selectedId)[0]
+        ) ?? []
+      ).map((node) => node.data); // TODO: figure out a better way to do this :") this is pretty bad
+
+      if (!data.id) {
+        return;
+      }
+
+      const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
+        getStackLayout(
+          orderedNodes,
+          updatedDirection,
+          data.id,
+          updatedSpacing,
+          true
+        );
+
+      if (!stackable) {
+        console.log("[stack] can't change stack");
+        alert("[Stack] Was not able to change stack positioning");
+        return;
+      }
+
+      const updatedStackNodes = treeNodes.map((node: any) => {
+        if (node.id === data.id) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              direction: updatedDirection,
+              spacing: updatedSpacing,
+            },
+          };
+        }
+
+        const position = (data.childrenIds ?? []).indexOf(node.id);
+        if (position === -1) {
+          return node;
+        }
+
+        return {
+          ...node,
+          data: { ...sortedNodes[position].data },
+        };
+      });
+
+      const index = _.findIndex(
+        updatedStackNodes,
+        (node: any) => node.id === data.id
+      );
+      const { updatedNodes, positionsToUpdate } = relayout(
+        updatedStackNodes,
+        index
+      );
+      setEditor((editor: any) =>
+        editor?.updateShapes(updatedPositions).updateShapes(positionsToUpdate)
+      );
+      setTreeNodes(updatedNodes);
       if (target === StackChangeTarget.direction) {
         // set default spacing
-        const newSpacing = data.data.spacing;
-        let newNodes: any;
 
-        let orderedNodes: any[] =
-          data.childrenIds?.map(
-            (selectedId: any) =>
-              nodes.filter((node: any) => node.id === selectedId)[0]
-          ) ?? []; // TODO: figure out a better way to do this :") this is pretty bad
-        let pivotNode: any = orderedNodes[0];
-
-        // try stacking with bboxes given back to nodes
-        let modifiedNodes = orderedNodes.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            bbox: {
-              ...node.data.bbox,
-              x:
-                node.data.owned.xOwner === data.id
-                  ? node.data.owned.x
-                  : undefined,
-              y:
-                node.data.owned.yOwner === data.id
-                  ? node.data.owned.y
-                  : undefined,
-            },
-            owned: {
-              ...node.data.owned,
-              x:
-                node.data.owned.xOwner === data.id
-                  ? undefined
-                  : node.data.owned.x,
-              y:
-                node.data.owned.yOwner === data.id
-                  ? undefined
-                  : node.data.owned.y,
-              xOwner: node.data.owned.xOwner === data.id ? undefined : data.id,
-              yOwner: node.data.owned.yOwner === data.id ? undefined : data.id,
-            },
-          },
-        }));
-
-        if (!data.id) {
-          return;
-        }
-
-        const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
-          getStackLayout(modifiedNodes, evt.target.value, data.id, newSpacing, true);
-
-        console.log(updatedPositions);
-
-        if (!stackable) {
-          console.log("[stack] can't change stack");
-          return;
-        }
-
-        newNodes = nodes.map((node: any) => {
-          if (node.id === data.id) {
-            console.log(node);
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                direction: evt.target.value,
-              },
-            };
-          }
-
-          const position = (data.childrenIds ?? []).indexOf(node.id);
-          if (position === -1) {
-            return node;
-          }
-          const alteredNode = sortedNodes[position].node;
-          return alteredNode;
-        });
-
-        console.log("New Nodes:", newNodes);
         setDirection(updatedDirection);
-        setNodes((nodes: any) => newNodes);
-        setTreeNodes((treeNodes: any) => {
-          return treeNodes.map((node: any) => {
-            if (node.recordId === data.id) {
-              console.log(node);
-              return {
-                ...node,
-                data: {
-                  ...node.data,
-                  direction: evt.target.value,
-                },
-              };
-            }
-
-            const position = (data.childrenIds ?? []).indexOf(node.id);
-            if (position === -1) {
-              return node;
-            }
-            const alteredNode = { ...node, ...sortedNodes[position].node };
-            return alteredNode;
-          });
-        });
-        setEditor((editor: any) => editor?.updateShapes(updatedPositions));
+      } else if (target === StackChangeTarget.spacing) {
+        data.data.spacing = +evt.target.value as number;
       }
     },
-    [
-      direction,
-      data.data.spacing,
-      data.childrenIds,
-      data.id,
-      setEditor,
-      nodes,
-      setNodes,
-      treeNodes,
-      setTreeNodes,
-    ]
+    [data, direction, setTreeNodes, setEditor, treeNodes]
   );
 
   return (
@@ -179,21 +134,23 @@ export function StackPanel({ data }: StackPanelProps) {
           <label htmlFor="vertical">vertical</label>
           <br />
         </div>
+        <div>
+          <label htmlFor="spacing">Spacing: </label>
+          {data.data.spacing !== undefined ? (
+            <input
+              id="spacing"
+              type="number"
+              onChange={(evt) => onChange(evt, StackChangeTarget.spacing)}
+              // className="nodrag"
+              value={Math.round(data.data.spacing)}
+              size={4}
+            />
+          ) : (
+            <></>
+          )}
+        </div>
 
-        {/* <label htmlFor="x">x: </label>
-        {data.x !== undefined ? (
-          <input
-            id="x"
-            name="text"
-            onChange={onChange}
-            className="nodrag"
-            value={Math.round(data.x)}
-            size={5}
-          />
-        ) : (
-          <></>
-        )}
-        {data.y !== undefined ? (
+        {/* {data.y !== undefined ? (
           <input
             id="y"
             name="text"

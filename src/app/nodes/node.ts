@@ -20,6 +20,8 @@ export enum Component {
     Text="Text",
     Align="Align",
     Stack="Stack",
+    Background="Background",
+    Group="Group",
     Other="Other"
   };
 
@@ -32,3 +34,4 @@ export type Node<T> = {
     parentId?: string;
     data: T;
 }
+
