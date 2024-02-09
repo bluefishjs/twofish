@@ -37,6 +37,8 @@ export function StackPanel({ data }: StackPanelProps) {
         target === StackChangeTarget.spacing
           ? (+evt.target.value as number)
           : data.data.spacing;
+      const updatedAlignment =
+        target === StackChangeTarget.alignment ? evt.target.value : alignment;
 
       let orderedNodes: any[] = (
         data.childrenIds?.map(
@@ -49,14 +51,20 @@ export function StackPanel({ data }: StackPanelProps) {
         return;
       }
 
-      const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
-        getStackLayout(
-          orderedNodes,
-          updatedDirection,
-          data.id,
-          updatedSpacing,
-          true
-        );
+      const {
+        stackable,
+        updatedPositions,
+        sortedNodes,
+        spacing,
+        stackAlignment,
+      } = getStackLayout(
+        orderedNodes,
+        updatedDirection,
+        data.id,
+        updatedSpacing,
+        true,
+        target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
+      );
 
       if (!stackable) {
         console.log("[stack] can't change stack");
@@ -70,8 +78,12 @@ export function StackPanel({ data }: StackPanelProps) {
             ...node,
             data: {
               ...node.data,
-              direction: updatedDirection,
-              spacing: updatedSpacing,
+              data: {
+
+                direction: updatedDirection,
+                spacing: updatedSpacing,
+                alignment: stackAlignment,
+              }
             },
           };
         }
@@ -105,9 +117,20 @@ export function StackPanel({ data }: StackPanelProps) {
         setDirection(updatedDirection);
       } else if (target === StackChangeTarget.spacing) {
         data.data.spacing = +evt.target.value as number;
+      } else {
+        setAlignment(stackAlignment ?? updatedAlignment);
       }
     },
-    [data, direction, setTreeNodes, setEditor, treeNodes]
+    [
+      direction,
+      data.data,
+      data.childrenIds,
+      data.id,
+      alignment,
+      treeNodes,
+      setEditor,
+      setTreeNodes,
+    ]
   );
 
   return (
@@ -162,31 +185,37 @@ export function StackPanel({ data }: StackPanelProps) {
         ) : (
           <></>
         )} */}
-        {/* {direction === "horizontal" ? (
-            <><label htmlFor="verticalAlignment">Alignment: </label>
-            <select
-              name="verticalAlignment"
-              id="verticalAlignment"
-              onChange={(evt) => onChange(evt, StackChangeTarget.alignment)}
-              value={alignment}
-            >
-              <option value="top">top</option>
-              <option value="center-vertical">centerV</option>
-              <option value="bottom">bottom</option>
-            </select></>
+        <div>
+          {direction === "horizontal" ? (
+            <>
+              <label htmlFor="verticalAlignment">Alignment: </label>
+              <select
+                name="verticalAlignment"
+                id="verticalAlignment"
+                onChange={(evt) => onChange(evt, StackChangeTarget.alignment)}
+                value={alignment}
+              >
+                <option value="top">top</option>
+                <option value="center-vertical">centerV</option>
+                <option value="bottom">bottom</option>
+              </select>
+            </>
           ) : (
-            <><label htmlFor="horizontalAlignment">Alignment: </label>
-            <select
-              name="horizontalAlignment"
-              id="horizontalAlignment"
-              onChange={(evt) => onChange(evt, StackChangeTarget.alignment)}
-              value={alignment}
-            >
-              <option value="left">left</option>
-              <option value="center-horizontal">centerH</option>
-              <option value="right">right</option>
-            </select></>
-          )} */}
+            <>
+              <label htmlFor="horizontalAlignment">Alignment: </label>
+              <select
+                name="horizontalAlignment"
+                id="horizontalAlignment"
+                onChange={(evt) => onChange(evt, StackChangeTarget.alignment)}
+                value={alignment}
+              >
+                <option value="left">left</option>
+                <option value="center-horizontal">centerH</option>
+                <option value="right">right</option>
+              </select>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

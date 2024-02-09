@@ -230,7 +230,7 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
 //
 // Tries to center align on the secondary axis, but if that doesn't work, for now
 // just maintains current locations of nodes
-export const getStackLayout = (childrenData: any[], operation: string, uid: string, spacing?: number, sorted?: boolean) => {
+export const getStackLayout = (childrenData: any[], operation: string, uid: string, spacing?: number, sorted?: boolean, alignment?: string) => {
 
     // try stacking with bboxes given back to nodes
     let modifiedData = childrenData.map((data) => ({
@@ -267,39 +267,16 @@ export const getStackLayout = (childrenData: any[], operation: string, uid: stri
         return { stackable: false, sortedNodes: modifiedData }
     }
 
-    const alignment =
-        operation === "vertical" ? "center-horizontal" : "center-vertical";
-    const alignAxes = getAlignAxes(modifiedData, alignment);
-    if (alignAxes !== false) {
-        // can be aligned
-        const { alignX, alignY } = alignAxes;
-        if (alignment === "center-horizontal") {
-            modifiedData = modifiedData.map((data) => {
-                const updateOwner = data.bbox.x !== undefined;
-                return {
-                    ...data,
-                    bbox: { ...data.bbox, x: undefined },
-                    owned: {
-                        ...data.owned,
-                        x: (alignX ?? 0) - data.bbox.width / 2,
-                        xOwner: updateOwner ? uid : data.xOwner
-                    },
-                }
-            });
-        } else if (alignment === "center-vertical") {
-            modifiedData = modifiedData.map((data) => {
-                const updateOwner = data.bbox.y !== undefined;
-                return {
-                    ...data,
-                    bbox: { ...data.bbox, y: undefined },
-                    owned: {
-                        ...data.owned,
-                        y: (alignY ?? 0) - data.bbox.height / 2,
-                        yOwner: updateOwner ? uid : data.yOwner
-                    },
-                }
-            });
-        }
+    if(!alignment) 
+        alignment =
+            operation === "vertical" ? "center-horizontal" : "center-vertical";
+
+    const {alignable, updatedPositions: alignedPositions, updatedNodeData, alignX, alignY} = getAlignLayout(modifiedData, alignment, uid);
+    
+    if(updatedNodeData !== undefined)
+        modifiedData = updatedNodeData;
+    else {
+        alert("[Stack] Couldn't align items due to contradictory positions")
     }
 
     let sortedNodes;
@@ -452,7 +429,7 @@ export const getStackLayout = (childrenData: any[], operation: string, uid: stri
             y += data.bbox.height + calculatedSpacing;
         }
     }
-    return { stackable: true, updatedPositions: updatedPositions, sortedNodes: sortedNodes, spacing: calculatedSpacing, alignment: alignment };
+    return { stackable: true, updatedPositions: updatedPositions, sortedNodes: sortedNodes, spacing: calculatedSpacing, stackAlignment: alignment };
 }
 
 
@@ -473,7 +450,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
             continue;
         }
         if (curNode.type === Component.Align) {
-            const childrenData = nodes
+            const childrenData = updatedNodes
                 .filter((childNode: any) => curNode.data.childrenIds?.includes(childNode.recordId))
                 .map((childNode: any) => childNode.data);
             const alignment = curNode.data.data.alignment;
@@ -486,12 +463,17 @@ export const relayout = (nodes: any[], indexChanged: number) => {
                 );
 
 
-            if (!alignable) {
+            if (!alignable || !updatedNodeData) {
                 // should just remove this from the relations
                 continue;
             }
 
-            positionsToUpdate = positionsToUpdate.concat(updatedPositions);
+            positionsToUpdate = positionsToUpdate.concat(updatedNodeData.map((data: any) => ({
+                id: data.id,
+                type: "geo",
+                x: data.bbox.x ?? data.owned.x,
+                y: data.bbox.y ?? data.owned.y
+            })));
             updatedNodes = updatedNodes.map((updatedNode) => {
                 if (!curNode.data.childrenIds?.includes(updatedNode.id)) {
                     return updatedNode;
@@ -503,7 +485,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
             });
         }
         else if (curNode.type === Component.Stack) {
-            const orderedData = curNode.data.childrenIds.map((id: any) => _.find(nodes, (n) => n.recordId === id))
+            const orderedData = curNode.data.childrenIds.map((id: any) => _.find(updatedNodes, (n) => n.recordId === id))
                 .map((childNode: any) => childNode.data);
 
             const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
@@ -512,7 +494,8 @@ export const relayout = (nodes: any[], indexChanged: number) => {
                     curNode.data.data.direction,
                     curNode.recordId,
                     curNode.data.data.spacing,
-                    true
+                    true,
+                    curNode.data.data.alignment
                 );
 
             if (!stackable) {
@@ -554,6 +537,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
         }
         updatedNodes.push({ ...curNode });
     }
+    console.log(positionsToUpdate);
     return { updatedNodes: updatedNodes, positionsToUpdate: positionsToUpdate };
 
 }

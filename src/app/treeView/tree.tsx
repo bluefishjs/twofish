@@ -1,11 +1,7 @@
 import { Tree } from "react-arborist";
 import { IconoirProvider, NavArrowDown, NavArrowRight } from "iconoir-react";
 import { useContext, useEffect, useRef } from "react";
-import {
-  SelectionContext,
-  TreeNodesContext,
-  EditorContext,
-} from "../editor";
+import { SelectionContext, TreeNodesContext, EditorContext } from "../editor";
 import { Component } from "../configurationPanel/node";
 import _ from "lodash";
 
@@ -15,6 +11,7 @@ type TreeViewProps = {
 // Tree view for twofish
 export function TreeView({ data }: TreeViewProps) {
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
+  const { editor, setEditor } = useContext(EditorContext);
   const { selectedTreeNodes, selectedTreeRelations, setSelectedTreeNodes } =
     useContext(SelectionContext);
   const treeRef = useRef();
@@ -23,21 +20,39 @@ export function TreeView({ data }: TreeViewProps) {
     const tree = treeRef.current;
     tree?.deselectAll();
     selectedTreeNodes.forEach((selectedId: any) => {
-      return tree?.get(selectedId)?.selectMulti()
+      return tree?.get(selectedId)?.selectMulti();
     });
-    selectedTreeRelations.forEach((selectedId: any) => {
-      return tree?.get(selectedId)?.selectMulti()
-    })
+    selectedTreeRelations.forEach(({ recordId }) => {
+      return tree?.get(recordId)?.selectMulti();
+    });
   }, [selectedTreeNodes, selectedTreeRelations]);
 
   const onDelete = ({ ids }) => {
-    const idsToDelete = [];
-    for (const id of ids) {
-      const node = _.find(treeNodes, (node) => node.id === id);
-      // if(node.)
-    }
-    console.log(ids);
-    // TODO: delete on TLDraw side as well
+    setTreeNodes((treeNodes: any) => {
+      return treeNodes
+        .filter((treeNode: any) => !ids.includes(treeNode.recordId))
+        .map((treeNode: any) => {
+          if (
+            !treeNode.data.childrenIds ||
+            treeNode.data.childrenIds.length == 0
+          ) {
+            return treeNode;
+          }
+          return {
+            ...treeNode,
+            children: treeNode.children.filter(
+              (child) => !ids.includes(child.recordId)
+            ),
+            data: {
+              ...treeNode.data,
+              childrenIds: treeNodes.childrenIds.filter(
+                (childId) => !ids.includes(childId)
+              ),
+            },
+          };
+        });
+    });
+    setEditor(editor.deleteShapes(ids).complete());
   };
   return (
     <IconoirProvider
@@ -76,39 +91,52 @@ export function TreeView({ data }: TreeViewProps) {
 export function TreeNode({ node, style, dragHandle }: any) {
   /* This node instance can do many things. See the API reference. */
   // console.log(node);
-  const { setSelectedTreeNodes, selectedTreeNodes, selectedTreeRelations, setSelectedTreeRelations } =
-    useContext(SelectionContext);
-  const {setEditor} = useContext(EditorContext);
+  const {
+    setSelectedTreeNodes,
+    selectedTreeNodes,
+    selectedTreeRelations,
+    setSelectedTreeRelations,
+  } = useContext(SelectionContext);
+  const { setEditor } = useContext(EditorContext);
 
   const handleClick = () => {
     if (node.isSelected) {
       node.deselect();
-      const newSelection = selectedTreeNodes.filter((selectedId: any) => selectedId !== node.data.recordId)
+      const newSelection = selectedTreeNodes.filter(
+        (selectedId: any) => selectedId !== node.data.recordId
+      );
       setSelectedTreeNodes(newSelection);
-      if(node.children && node.children.length > 0) {
-        setSelectedTreeRelations(selectedTreeRelations.filter((selectedId: any) => selectedId !== node.data.recordId))
-        setEditor((editor: any) => editor?.deselect(...node.data.data.childrenIds))
+      if (node.children && node.children.length > 0) {
+        setSelectedTreeRelations(
+          selectedTreeRelations.filter(
+            (selectedId: any) => selectedId !== node.data.recordId
+          )
+        );
+        setEditor(editor?.deselect(...node.data.data.childrenIds).complete());
         return;
       }
-      setEditor((editor: any) => editor?.deselect(node.data.recordId))
+      setEditor(editor?.deselect(node.data.recordId).complete());
       return;
     } else {
-      if (
-        selectedTreeNodes.includes(node.data.recordId)
-      ) {
+      if (selectedTreeNodes.includes(node.data.recordId)) {
         node.select();
         return;
       }
       setSelectedTreeNodes([...selectedTreeNodes, node.data.recordId]);
-      if(node.children && node.children.length > 0) {
-        setSelectedTreeRelations([...selectedTreeRelations, node.data.recordId])
-        setEditor((editor: any) => editor?.select(...selectedTreeNodes,...node.data.data.childrenIds))
+      if (node.children && node.children.length > 0) {
+        setSelectedTreeRelations([
+          ...selectedTreeRelations,
+          {
+            recordId: node.data.recordId,
+            childrenIds: node.data.data.childrenIds,
+          },
+        ]);
+        setEditor(editor?.select(...node.data.data.childrenIds).complete());
         return;
+      } else {
+        setEditor(editor?.select(node.data.recordId));
       }
-      else {
-        setEditor((editor: any) => editor?.select(...selectedTreeNodes, node.data.recordId))
-      }
-      
+
       node.select();
       return;
     }

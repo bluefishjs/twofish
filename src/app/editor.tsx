@@ -53,7 +53,7 @@ export default function Editor() {
   const [selectedNodes, setSelectedNodes] = useState(Array<string>());
   const [selectedTreeNodes, setSelectedTreeNodes] = useState(Array<any>());
   const [selectedTreeRelations, setSelectedTreeRelations] = useState(
-    Array<any>()
+    Array<{ recordId: any; childrenIds: any[] }>()
   );
   const [selectedShapeIds, setSelectedShapeIds] = useState(Array<string>());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -219,7 +219,7 @@ export default function Editor() {
             };
           });
 
-          setEditor((editor) => editor?.updateShapes(updatedPositions));
+          setEditor((editor) => editor?.updateShapes(updatedPositions).complete());
 
           return removedPositions.concat({
             id: uid,
@@ -261,7 +261,7 @@ export default function Editor() {
             stackable,
             sortedNodes,
             spacing,
-            alignment,
+            stackAlignment,
             updatedPositions,
           } = result;
 
@@ -334,7 +334,7 @@ export default function Editor() {
               id: uid,
               data: {
                 direction: (data as any).operation,
-                alignment: alignment,
+                alignment: stackAlignment,
                 spacing: spacing,
               },
               bbox: {
@@ -745,13 +745,64 @@ export default function Editor() {
             from.typeName === "instance_page_state" &&
             to.typeName === "instance_page_state"
           ) {
-            console.log(from);
+
             // keep track of selected id's
             if (!_.isEqual(from.selectedIds, to.selectedIds)) {
               // TODO: Come up with a better solution to this. This works okay for now but is not great
-              const toIds = to.selectedIds.map((id) => id as string);
-              if (selectedTreeRelations.length === 0)
-                setSelectedTreeNodes(toIds);
+
+              const fromSelection = new Set(from.selectedIds);
+              const toSelection = new Set(to.selectedIds);
+
+              const deselected = from.selectedIds.filter(
+                (a) => !toSelection.has(a)
+              );
+              const newlySelected = to.selectedIds.filter(
+                (a) => !fromSelection.has(a)
+              );
+
+
+              setSelectedTreeNodes((selectedTreeNodes) => {
+                const selectedTreeNodesSet = new Set(selectedTreeNodes);
+                const nodesToRemove: any[] = [];
+                const nodesToAdd: any[] = [];
+                const selectedRelationsToRemove = new Set();
+                console.log(selectedTreeRelations);
+                for (const id of deselected) {
+                  if (selectedTreeNodesSet.has(id)) {
+                    nodesToRemove.push(id);
+                  } 
+                  for (const relation of selectedTreeRelations) {
+                    if (relation.childrenIds.includes(id)) {
+                      nodesToRemove.push(relation.recordId);
+                      selectedRelationsToRemove.add(relation.recordId);
+                    }
+                  }
+                }
+                for(const id of newlySelected) {
+                  let shouldAdd = true;
+                  for(const relation of selectedTreeRelations) {
+                    if(relation.childrenIds.includes(id)) {
+                      shouldAdd = false;
+                      break;
+                    }
+                  }
+                  if(shouldAdd) {
+                    nodesToAdd.push(id);
+                  }
+                }
+                console.log(selectedRelationsToRemove);
+                setSelectedTreeRelations(selectedTreeRelations.filter((relation) => !selectedRelationsToRemove.has(relation.recordId)));
+                return [
+                  ...selectedTreeNodes.filter(
+                    (id) => !nodesToRemove.includes(id)
+                  ),
+                  ...nodesToAdd,
+                ];
+              });
+
+              // const toIds = to.selectedIds.map((id) => id as string);
+              // if (selectedTreeRelations.length === 0)
+              //   setSelectedTreeNodes(toIds);
             }
           }
         }
@@ -808,7 +859,7 @@ export default function Editor() {
     return () => {
       editor.off("change", handleChangeEvent);
     };
-  }, [editor, selectedTreeRelations.length, setEdges, setNodes]);
+  }, [editor, selectedTreeRelations, selectedTreeRelations.length, setEdges, setNodes]);
 
   return (
     <EditorContext.Provider value={editorContextValue}>
