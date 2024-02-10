@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState } from "react";
 import "./panel.css";
 import { Alignment } from "../nodes/alignNode";
-import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
+import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import { getStackLayout, relayout } from "../layoutUtils";
 import _ from "lodash";
@@ -79,11 +79,10 @@ export function StackPanel({ data }: StackPanelProps) {
             data: {
               ...node.data,
               data: {
-
                 direction: updatedDirection,
                 spacing: updatedSpacing,
                 alignment: stackAlignment,
-              }
+              },
             },
           };
         }
@@ -107,13 +106,15 @@ export function StackPanel({ data }: StackPanelProps) {
         updatedStackNodes,
         index
       );
-      setEditor((editor: any) =>
-        editor?.updateShapes(updatedPositions).updateShapes(positionsToUpdate)
+      setEditor(
+        editor
+          ?.updateShapes(updatedPositions)
+          .updateShapes(positionsToUpdate)
+          .complete()
       );
       setTreeNodes(updatedNodes);
       if (target === StackChangeTarget.direction) {
         // set default spacing
-
         setDirection(updatedDirection);
       } else if (target === StackChangeTarget.spacing) {
         data.data.spacing = +evt.target.value as number;
@@ -121,16 +122,7 @@ export function StackPanel({ data }: StackPanelProps) {
         setAlignment(stackAlignment ?? updatedAlignment);
       }
     },
-    [
-      direction,
-      data.data,
-      data.childrenIds,
-      data.id,
-      alignment,
-      treeNodes,
-      setEditor,
-      setTreeNodes,
-    ]
+    [direction, data.data, data.childrenIds, data.id, alignment, treeNodes, setEditor, editor, setTreeNodes]
   );
 
   return (

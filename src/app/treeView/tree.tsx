@@ -8,6 +8,20 @@ import _ from "lodash";
 type TreeViewProps = {
   data: any[];
 };
+
+
+const componentIcons = {
+  [Component.Rect]: <i className="fa fa-regular fa-square"></i>,
+  [Component.Stack]: <i className="fa fa-solid fa-bars"></i>,
+  [Component.Align]: <i className="fa-solid fa-align-left"></i>,
+  [Component.Arrow]: <i className="fa fa-solid fa-rotate-left"></i>,
+  [Component.Text]: <i className="fa fa-solid fa-font"></i>,
+  [Component.Ellipse]: <i className="fa fa-regular fa-circle"></i>,
+  [Component.Group]: <i className="fa fa-solid fa-layer-group"></i>,
+  [Component.Background]: <i className="fa fa-solid fa-square-poll-vertical"></i>,
+  [Component.Other]: <i className="fa fa-solid fa-caret-up"></i>,
+}
+
 // Tree view for twofish
 export function TreeView({ data }: TreeViewProps) {
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
@@ -55,14 +69,6 @@ export function TreeView({ data }: TreeViewProps) {
     setEditor(editor.deleteShapes(ids).complete());
   };
   return (
-    <IconoirProvider
-      iconProps={{
-        color: "#000",
-        strokeWidth: 2,
-        width: "16px",
-        height: "16px",
-      }}
-    >
       <div
         style={{
           width: "15vw",
@@ -75,7 +81,7 @@ export function TreeView({ data }: TreeViewProps) {
         <h2 style={{ fontWeight: 600 }}>Objects</h2>
         <Tree
           data={data}
-          width="10vw"
+          width="13vw"
           padding={10}
           className="tree-body"
           onDelete={onDelete}
@@ -84,7 +90,6 @@ export function TreeView({ data }: TreeViewProps) {
           {TreeNode}
         </Tree>
       </div>
-    </IconoirProvider>
   );
 }
 
@@ -151,12 +156,12 @@ export function TreeNode({ node, style, dragHandle }: any) {
     >
       {!node.isLeaf ? (
         <button onClick={() => node.toggle()}>
-          {node.isOpen ? <NavArrowDown /> : <NavArrowRight />}
+          {node.isOpen ? <i className="fa fa-solid fa-angle-down"></i>: <i className="fa fa-solid fa-angle-right"></i>}
         </button>
       ) : (
         <span style={{ width: 16, display: "inline-block" }}></span>
       )}
-      {node.isLeaf ? "Δ " : "≡ "}
+      {componentIcons[node.data.name as Component]}
       {node.data.name}
     </div>
   );
