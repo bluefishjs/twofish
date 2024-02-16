@@ -20,6 +20,7 @@
     "iconoir-react": "^7.3.0",
     "lodash": "^4.17.21",
     "next": "13.4.12",
+    "pnpm": "^8.15.2",
     "postcss": "8.4.27",
     "react": "18.2.0",
     "react-arborist": "^3.4.0",

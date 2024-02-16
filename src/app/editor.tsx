@@ -13,7 +13,7 @@ import {
   createShapeId,
   uniqueId,
 } from "@tldraw/tldraw";
-import {} from "@tldraw/tldraw";
+import { } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
 import {
   createContext,
@@ -39,7 +39,7 @@ import { overrides } from "./overrides";
 import { getBBox } from "./utils";
 import { TreeView } from "./treeView/tree";
 import { Panel } from "./configurationPanel/panel";
-import { getAlignAxes, getAlignLayout, getStackLayout } from "./layoutUtils";
+import { getAlignLayout, getStackLayout, getBackgroundLayout } from "./layoutUtils";
 import { node } from "webpack";
 
 export const EditorContext = createContext<any>(undefined);
@@ -82,6 +82,14 @@ export default function Editor() {
     }),
     []
   );
+
+  // Clear all shapes from Twofish
+  const clearAll = (evt: any) => {
+    setTreeNodes([])
+    setSelectedTreeNodes([])
+    setSelectedTreeRelations([])
+    setEditor((editor) => editor?.deleteShapes(Array.from(editor?.currentPageShapeIds)))
+  }
 
   const onSelectionChange = (evt: any) => {
     const newSelectedNodes = evt.nodes;
@@ -211,6 +219,7 @@ export default function Editor() {
               recordId: node.recordId,
               name: node.data.name,
               type: node.data.type,
+              instanceSelected: false,
             });
 
             return {
@@ -297,6 +306,7 @@ export default function Editor() {
               recordId: node.id,
               name: node.data.name,
               type: node.data.type,
+              instanceSelected: false
             });
 
             const stackPosition = sortedIds.findIndex(
@@ -350,39 +360,23 @@ export default function Editor() {
         const selectedIds = (data as any).ids;
         setEditor((editor) => {
           setTreeNodes((treeNodes: any) => {
-            let selectedNodes = treeNodes.filter((node: any) =>
+            let selectedNodeData = treeNodes.filter((node: any) =>
               selectedIds.includes(node.id)
-            ); // selected nodes
-            const childBBoxes = selectedNodes.map((node: any) => ({
-              x: node.data.bbox.x ?? node.data.owned.x ?? 0,
-              y: node.data.bbox.y ?? node.data.owned.y ?? 0,
-              width: node.data.bbox.width ?? node.data.owned.width ?? 0,
-              height: node.data.bbox.height ?? node.data.owned.height ?? 0,
-            }));
-            const groupBBox = getBBox(childBBoxes);
-            console.log(
-              "[Background] Calculated BBoxes: ",
-              childBBoxes,
-              groupBBox
-            );
-            const backgroundBBox = {
-              x: groupBBox.x - 10,
-              y: groupBBox.y - 10,
-              width: groupBBox.width + 20,
-              height: groupBBox.height + 20,
-            };
+            ).map((node) => node.data); // selected nodes
+
             const id = createShapeId();
+            const { backgroundBBox, backgroundPosition } = getBackgroundLayout(selectedNodeData, 10, id);
             editor?.batch(() => {
               editor.createShapes([
                 {
                   id: id,
                   type: "geo",
-                  x: backgroundBBox.x,
-                  y: backgroundBBox.y,
+                  x: backgroundPosition.x,
+                  y: backgroundPosition.y,
                   props: {
                     geo: "rectangle",
-                    w: backgroundBBox.width,
-                    h: backgroundBBox.height,
+                    w: backgroundPosition.props.w,
+                    h: backgroundPosition.props.h,
                   },
                 },
               ]);
@@ -395,20 +389,18 @@ export default function Editor() {
               name: Component.Background,
               type: Component.Background,
               nodeType: "backgroundNode",
-              position: { x: backgroundBBox.x, y: backgroundBBox.y },
-              children: selectedNodes.map((node) => ({
+              position: { x: backgroundPosition.x, y: backgroundPosition.y },
+              children: selectedNodeData.map((data) => ({
                 id: uniqueId(),
-                recordId: node.id,
-                name: node.data.name,
+                recordId: data.id,
+                name: data.name,
               })),
               data: {
                 id: id,
                 name: "background",
-                bbox: {
-                  ...backgroundBBox,
-                },
+                bbox: backgroundBBox,
                 owned: {},
-                childrenIds: selectedNodes.map((node) => node.id),
+                childrenIds: selectedNodeData.map((data) => data.id),
                 data: {
                   padding: 10,
                 },
@@ -766,11 +758,10 @@ export default function Editor() {
                 const nodesToRemove: any[] = [];
                 const nodesToAdd: any[] = [];
                 const selectedRelationsToRemove = new Set();
-                console.log(selectedTreeRelations);
                 for (const id of deselected) {
                   if (selectedTreeNodesSet.has(id)) {
                     nodesToRemove.push(id);
-                  } 
+                  }
                   for (const relation of selectedTreeRelations) {
                     if (relation.childrenIds.includes(id)) {
                       nodesToRemove.push(relation.recordId);
@@ -778,19 +769,21 @@ export default function Editor() {
                     }
                   }
                 }
-                for(const id of newlySelected) {
+                for (const id of newlySelected) {
                   let shouldAdd = true;
-                  for(const relation of selectedTreeRelations) {
-                    if(relation.childrenIds.includes(id)) {
+                  if (selectedTreeNodesSet.has(id)) {
+                    continue;
+                  }
+                  for (const relation of selectedTreeRelations) {
+                    if (relation.childrenIds.includes(id)) {
                       shouldAdd = false;
                       break;
                     }
                   }
-                  if(shouldAdd) {
+                  if (shouldAdd) {
                     nodesToAdd.push(id);
                   }
                 }
-                console.log(selectedRelationsToRemove);
                 setSelectedTreeRelations(selectedTreeRelations.filter((relation) => !selectedRelationsToRemove.has(relation.recordId)));
                 return [
                   ...selectedTreeNodes.filter(
@@ -867,9 +860,12 @@ export default function Editor() {
         <TreeNodesContext.Provider value={treeNodesContextValue}>
           <EdgesContext.Provider value={{ edges, setEdges }}>
             <SelectionContext.Provider value={selectedTreeContextValue}>
-              <div style={{ display: "flex" }}>
-                <TreeView data={treeNodes} />
-                <div style={{ width: "60vw", height: "100vh" }}>
+              <div style={{ display: "flex" }} >
+                <div className="treeview-container">
+                  <button className="clear-button" onClick={clearAll}>Clear All Objects</button>
+                  <TreeView data={treeNodes} />
+                </div>
+                <div className="tldraw-container">
                   <Tldraw
                     autoFocus
                     onUiEvent={handleUiEvent}
@@ -877,25 +873,10 @@ export default function Editor() {
                     overrides={overrides}
                   />
                 </div>
-                <div>
-                  <div
-                    style={{
-                      width: "25vw",
-                      height: "100vh",
-                      padding: 8,
-                      background: "#eee",
-                      border: "none",
-                      fontFamily: "monospace",
-                      fontSize: 12,
-                      borderLeft: "solid 2px #333",
-                      display: "flex",
-                      flexDirection: "column-reverse",
-                      overflow: "auto",
-                    }}
-                  >
-                    <div style={{ width: "100vw", height: "100vh" }}>
-                      <Panel />
-                      {/* <ReactFlowProvider>
+                <div className="panel-container"
+                >
+                  <Panel />
+                  {/* <ReactFlowProvider>
                         <ReactFlow
                           nodeTypes={nodeTypes}
                           nodes={flowNodes}
@@ -905,8 +886,6 @@ export default function Editor() {
                           onSelectionChange={onSelectionChange}
                         />
                       </ReactFlowProvider> */}
-                    </div>
-                  </div>
                 </div>
               </div>
             </SelectionContext.Provider>

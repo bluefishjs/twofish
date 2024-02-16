@@ -2,8 +2,9 @@ import { TLShapeId } from "@tldraw/tldraw";
 import _ from "lodash";
 import { Component } from "./configurationPanel/node";
 import { getBBox } from "./utils";
+import { Alignment } from "./nodes/alignNode";
 
-const horizontalAlignments = ["left", "center-horizontal", "right"];
+export const horizontalAlignments = ["left", "center-horizontal", "right"];
 // returns axis to align on (either x value or y value) if able to be aligned
 // returns false otherwise
 export const getAlignAxes = (selectedNodeData: any[], operation: string, alignX?: number, alignY?: number) => {
@@ -68,6 +69,8 @@ export const getAlignAxes = (selectedNodeData: any[], operation: string, alignX?
     }
 
     if (fixedNodes.length !== 0) return { alignX, alignY };
+    if (alignX !== undefined && horizontalAlignments.includes(operation)) return { alignX, alignY };
+    if (alignY != undefined && !horizontalAlignments.includes(operation)) return { alignX, alignY };
 
     selectedNodeData.forEach((data) => {
         const bbox = data.bbox;
@@ -166,7 +169,7 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
         if (
             horizontalAlignments.includes(operation)
         ) {
-            if(updatedData.bbox.x === undefined) {
+            if (updatedData.bbox.x === undefined) {
                 return updatedData
             }
             updatedData.bbox.x = undefined;
@@ -190,7 +193,7 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
                 x: updatedData.owned.x,
             });
         } else {
-            if(updatedData.bbox.y === undefined) {
+            if (updatedData.bbox.y === undefined) {
                 return updatedData
             }
             updatedData.bbox.y = undefined;
@@ -220,6 +223,34 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
 
     return { alignable: true, alignX: calculatedAlignX, alignY: calculatedAlignY, updatedPositions: updatedPositions, updatedNodeData: updatedNodeData }
 
+}
+
+export const getBackgroundLayout = (childrenData: any, padding: number, uid: string) => {
+    const childrenBBoxes = childrenData.map((data) => ({
+        x: data.bbox.x ?? data.owned.x ?? 0,
+        y: data.bbox.y ?? data.owned.y ?? 0,
+        width: data.bbox.width ?? data.owned.width ?? 0,
+        height: data.bbox.height ?? data.owned.height ?? 0,
+    }))
+    const newBBox = getBBox(childrenBBoxes);
+    const backgroundBBox = {
+        x: newBBox.x - padding,
+        y: newBBox.y - padding,
+        width: newBBox.width + padding * 2,
+        height: newBBox.height + padding * 2
+    }
+    return {
+        backgroundBBox: backgroundBBox,
+        backgroundPosition: {
+            id: uid,
+            x: backgroundBBox.x,
+            y: backgroundBBox.y,
+            props: {
+                w: backgroundBBox.width,
+                h: backgroundBBox.height
+            }
+        }
+    }
 }
 
 // Given data of selected nodes, if the stack layout operation can be completed, 
@@ -267,13 +298,23 @@ export const getStackLayout = (childrenData: any[], operation: string, uid: stri
         return { stackable: false, sortedNodes: modifiedData }
     }
 
-    if(!alignment) 
-        alignment =
-            operation === "vertical" ? "center-horizontal" : "center-vertical";
-
-    const {alignable, updatedPositions: alignedPositions, updatedNodeData, alignX, alignY} = getAlignLayout(modifiedData, alignment, uid);
+    let alignmentsToTry: Alignment[] = alignment ? [alignment as Alignment] : (operation === "vertical" ? ["center-horizontal", "right", "left"] : ["center-vertical", "top", "bottom"]);
     
-    if(updatedNodeData !== undefined)
+    let updatedNodeData: any[] = [];
+
+    let canAlign = false;
+   
+    for(const curAlignment of alignmentsToTry){
+        const  { alignable, updatedNodeData: alignedNodeData, alignX, alignY } = getAlignLayout(modifiedData, curAlignment, uid);
+        if(alignable) {
+            updatedNodeData = alignedNodeData ?? [];
+            alignment = alignment;
+            canAlign = true;
+            break;
+        }
+    }
+
+    if (canAlign)
         modifiedData = updatedNodeData;
     else {
         alert("[Stack] Couldn't align items due to contradictory positions")
@@ -483,6 +524,8 @@ export const relayout = (nodes: any[], indexChanged: number) => {
                     data: _.find(updatedNodeData, (data) => data.id === updatedNode.id),
                 };
             });
+
+            updatedNodes.push({ ...curNode });
         }
         else if (curNode.type === Component.Stack) {
             const orderedData = curNode.data.childrenIds.map((id: any) => _.find(updatedNodes, (n) => n.recordId === id))
@@ -516,26 +559,16 @@ export const relayout = (nodes: any[], indexChanged: number) => {
             });
 
             positionsToUpdate = positionsToUpdate.concat(updatedPositions);
+
+            updatedNodes.push({ ...curNode });
         }
         else if (curNode.type === Component.Background) {
-            const childrenBBoxes = updatedNodes.filter((node) => curNode.data.childrenIds.includes(node.recordId)).map((childNode) => ({
-                x: childNode.data.bbox.x ?? childNode.data.owned.x,
-                y: childNode.data.bbox.y ?? childNode.data.owned.y,
-                width: childNode.data.bbox.width ?? childNode.data.owned.width,
-                height: childNode.data.bbox.height ?? childNode.data.owned.height
-            }));
-            const newBBox = getBBox(childrenBBoxes);
-            positionsToUpdate.push({
-                id: curNode.recordId,
-                x: newBBox.x - curNode.data.data.padding,
-                y: newBBox.y - curNode.data.data.padding,
-                props: {
-                    w: newBBox.width + curNode.data.data.padding * 2,
-                    h: newBBox.height + curNode.data.data.padding * 2
-                }
-            })
+            const childrenData = updatedNodes.filter((node) => curNode.data.childrenIds.includes(node.recordId)).map((node) => node.data)
+            console.log("update", childrenData);
+            const { backgroundPosition, backgroundBBox } = getBackgroundLayout(childrenData, curNode.data.data.padding, curNode.data.id);
+            positionsToUpdate.push(backgroundPosition);
+            updatedNodes.push({ ...curNode, data: { ...curNode.data, bbox: backgroundBBox } });
         }
-        updatedNodes.push({ ...curNode });
     }
     console.log(positionsToUpdate);
     return { updatedNodes: updatedNodes, positionsToUpdate: positionsToUpdate };

@@ -3,7 +3,7 @@ import "./panel.css";
 import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import _ from "lodash";
-import { getAlignAxes, getAlignLayout } from "../layoutUtils";
+import { getAlignAxes, getAlignLayout, horizontalAlignments, relayout } from "../layoutUtils";
 
 export type HorizontalAlignment = "left" | "center-horizontal" | "right";
 export type VerticalAlignment = "top" | "center-vertical" | "bottom";
@@ -32,7 +32,12 @@ export function AlignPanel({ data }: AlignPanelProps) {
 
   const onChange = useCallback(
     (evt: any, changeTarget: ChangeTarget) => {
-      let alignmentData = {
+      let alignmentData: {
+        id: string,
+        alignment: Alignment,
+        alignX: number | undefined,
+        alignY: number | undefined
+      } = {
         id: data.id,
         alignment: data.data.alignment,
         alignX: data.data.x,
@@ -43,6 +48,8 @@ export function AlignPanel({ data }: AlignPanelProps) {
           alignmentData = {
             ...alignmentData,
             alignment: evt.target.value as Alignment,
+            alignX: undefined,
+            alignY: undefined,
           };
           break;
         case ChangeTarget.x:
@@ -77,47 +84,63 @@ export function AlignPanel({ data }: AlignPanelProps) {
         .filter((node: any) => data.childrenIds?.includes(node.recordId))
         .map((node: any) => node.data);
 
+      console.log(alignmentData);
       const { alignable, updatedPositions, updatedNodeData, alignX, alignY } =
         getAlignLayout(
           childrenData,
           alignmentData.alignment,
-          data.id
-          // alignmentData.alignX,
-          // alignmentData.alignY
+          data.id,
+          alignmentData.alignX,
+          alignmentData.alignY
         );
 
+      console.log(alignX, alignY);
       if (!alignable) {
         alert("Was not able to change alignment");
         return;
       }
-      setTreeNodes((nodes) =>
-        nodes.map((node) => {
-          if (node.id === data.id)
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                data: {
-                alignment: alignmentData.alignment,
-                x: alignX,
-                y: alignY,
-              }},
-            };
-          if (!data.childrenIds?.includes(node.id)) {
-            return node;
-          }
+      const updatedAlignNodes = treeNodes.map((node) => {
+        if (node.id === data.id)
           return {
             ...node,
-            data: _.find(updatedNodeData, (data) => data.id === node.id),
+            data: {
+              ...node.data,
+              data: {
+                alignment: alignmentData.alignment,
+                x: horizontalAlignments.includes(alignment) ? alignX : undefined,
+                y: horizontalAlignments.includes(alignment) ? undefined : alignY,
+              }
+            },
           };
-        })
-      );
+        if (!data.childrenIds?.includes(node.id)) {
+          return node;
+        }
+        return {
+          ...node,
+          data: _.find(updatedNodeData, (data) => data.id === node.id),
+        };
+      });
       // data.data.alignment = alignmentData.alignment;
-      setAlignment(alignmentData.alignment);
+
       // should never reach second case? But will have to test
       // data.data.x = alignX ?? 0;
       // data.data.y = alignY ?? 0;
-      setEditor((editor as any).updateShapes(updatedPositions));
+      const index = _.findIndex(
+        updatedAlignNodes,
+        (node: any) => node.id === data.id
+      );
+      const { updatedNodes, positionsToUpdate } = relayout(
+        updatedAlignNodes,
+        index
+      );
+      setEditor(
+        editor
+          ?.updateShapes(updatedPositions)
+          .updateShapes(positionsToUpdate)
+          .complete()
+      );
+      setTreeNodes(updatedNodes);
+      setAlignment(alignmentData.alignment);
     },
     [
       data.id,

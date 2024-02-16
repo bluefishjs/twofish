@@ -1,9 +1,10 @@
-import { Tree } from "react-arborist";
+import { Tree, TreeApi } from "react-arborist";
 import { IconoirProvider, NavArrowDown, NavArrowRight } from "iconoir-react";
 import { useContext, useEffect, useRef } from "react";
 import { SelectionContext, TreeNodesContext, EditorContext } from "../editor";
 import { Component } from "../configurationPanel/node";
 import _ from "lodash";
+import "./tree.css";
 
 type TreeViewProps = {
   data: any[];
@@ -26,9 +27,9 @@ const componentIcons = {
 export function TreeView({ data }: TreeViewProps) {
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
-  const { selectedTreeNodes, selectedTreeRelations, setSelectedTreeNodes } =
+  const { selectedTreeNodes, selectedTreeRelations, setSelectedTreeNodes, setSelectedTreeRelations } =
     useContext(SelectionContext);
-  const treeRef = useRef();
+  const treeRef = useRef<TreeApi<any> | undefined>();
 
   useEffect(() => {
     const tree = treeRef.current;
@@ -68,28 +69,39 @@ export function TreeView({ data }: TreeViewProps) {
     });
     setEditor(editor.deleteShapes(ids).complete());
   };
+
+  const onSelect = (nodes: any) => {
+    const tree = treeRef.current;
+    if (tree === undefined) return;
+
+    const selectedTreeNodesSet = new Set(selectedTreeNodes);
+    for (const node of tree.visibleNodes) {
+      if (!node.isSelected && selectedTreeNodesSet.has(node.data.recordId)) {
+        node.data.instanceSelected = true;
+      }
+      else {
+        node.data.instanceSelected = false;
+      }
+    }
+  }
+
   return (
-      <div
-        style={{
-          width: "15vw",
-          height: "100vh",
-          background: "#eee",
-          padding: 10,
-          borderRight: "2px solid black",
-        }}
+    <div
+    >
+      <h2 style={{ fontWeight: 600 }}>Objects</h2>
+      <Tree
+        data={data}
+        width="13vw"
+        height={900}
+        padding={10}
+        className="tree-body"
+        onDelete={onDelete}
+        ref={treeRef}
+        onSelect={onSelect}
       >
-        <h2 style={{ fontWeight: 600 }}>Objects</h2>
-        <Tree
-          data={data}
-          width="13vw"
-          padding={10}
-          className="tree-body"
-          onDelete={onDelete}
-          ref={treeRef}
-        >
-          {TreeNode}
-        </Tree>
-      </div>
+        {TreeNode}
+      </Tree>
+    </div>
   );
 }
 
@@ -151,12 +163,12 @@ export function TreeNode({ node, style, dragHandle }: any) {
     <div
       style={{ ...style, border: "solid black", borderWidth: "0px 0 1px 0" }}
       ref={dragHandle}
-      className={`tree-node ${node.isSelected ? "selected" : "unselected"}`}
+      className={`tree-node ${node.data.instanceSelected ? "instance-selected" : ""} ${node.isSelected ? "selected" : "unselected"}`}
       onClick={handleClick}
     >
       {!node.isLeaf ? (
         <button onClick={() => node.toggle()}>
-          {node.isOpen ? <i className="fa fa-solid fa-angle-down"></i>: <i className="fa fa-solid fa-angle-right"></i>}
+          {node.isOpen ? <i className="fa fa-solid fa-angle-down"></i> : <i className="fa fa-solid fa-angle-right"></i>}
         </button>
       ) : (
         <span style={{ width: 16, display: "inline-block" }}></span>

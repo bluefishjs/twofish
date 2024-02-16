@@ -32,5 +32,6 @@ export type Node<T> = {
     owned: BBoxWithOwner;
     childrenIds?: string[];
     parentId?: string;
+    instanceSelected?: boolean; // just a placeholder to prototype semi-highlighting nodes that have the same ids are certain selected nodes
     data: T;
 }

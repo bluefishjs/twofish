@@ -12,6 +12,7 @@ import { TextPanel } from "./textPanel";
 import _ from "lodash";
 import { AlignPanel } from "./alignPanel";
 import { Component } from "./node";
+import { BackgroundPanel } from "./backgroundPanel";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
@@ -42,6 +43,9 @@ export function Panel() {
           break;
         case Component.Text:
           configInfo = <TextPanel {...selectedRecord} />;
+          break;
+        case Component.Background:
+          configInfo = <BackgroundPanel {...selectedRecord} />;
           break;
         default:
           configInfo = <h2>{selectedRecord.name} </h2>;

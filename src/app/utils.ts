@@ -23,7 +23,11 @@ export function getBBox(
 // Check if string is numeric
 export function isNumeric(val: string): boolean {
     return (
-      !isNaN(Number(Number.parseFloat(String(val)))) &&
-      isFinite(Number(val))
+        !isNaN(Number(Number.parseFloat(String(val)))) &&
+        isFinite(Number(val))
     );
-  }
+}
+
+export function symmetricDifference(a: Set<any>, b: Set<any>): Set<any> {
+    return new Set([...Array.from(a.values()).filter((val) => !b.has(val)), ...Array.from(b.values()).filter((val) => !a.has(val))])
+}
