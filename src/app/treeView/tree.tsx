@@ -60,7 +60,7 @@ export function TreeView({ data }: TreeViewProps) {
             ),
             data: {
               ...treeNode.data,
-              childrenIds: treeNodes.childrenIds.filter(
+              childrenIds: treeNode.childrenIds.filter(
                 (childId) => !ids.includes(childId)
               ),
             },

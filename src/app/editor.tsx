@@ -12,6 +12,7 @@ import {
   Tldraw,
   createShapeId,
   uniqueId,
+  useEditor,
 } from "@tldraw/tldraw";
 import { } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
@@ -39,7 +40,7 @@ import { overrides } from "./overrides";
 import { getBBox } from "./utils";
 import { TreeView } from "./treeView/tree";
 import { Panel } from "./configurationPanel/panel";
-import { getAlignLayout, getStackLayout, getBackgroundLayout } from "./layoutUtils";
+import { getAlignLayout, getStackLayout, getBackgroundLayout, relayout } from "./layoutUtils";
 import { node } from "webpack";
 
 export const EditorContext = createContext<any>(undefined);
@@ -48,6 +49,19 @@ export const TreeNodesContext = createContext<any>(undefined);
 export const EdgesContext = createContext<any>(undefined);
 export const SelectionContext = createContext<any>(undefined);
 
+
+function TLDrawHandler() {
+  const editor = useEditor();
+
+  // useEffect(() => {
+  //   const handleChangeEvent = () => console.log(editor)
+  //   editor.on("change", handleChangeEvent);
+  //   return () => {
+  //     editor.off("change", handleChangeEvent);
+  //   };
+  // })
+  return null;
+}
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
   const [selectedNodes, setSelectedNodes] = useState(Array<string>());
@@ -159,6 +173,13 @@ export default function Editor() {
   enum EdgeTypes {
     Align,
     Stack,
+  }
+
+  const handleKeyDown = (event) => {
+    if (event.key === ".") {
+      // TODO: Implement selection change
+      console.log("selection drill down");
+    }
   }
 
   const [uiEvents, setUiEvents] = useState<string[]>([]);
@@ -423,12 +444,117 @@ export default function Editor() {
 
   const [storeEvents, setStoreEvents] = useState<string[]>([]);
 
+  const [dragging, setDragging] = useState<boolean>(false);
+  // const [editingNodes, setEditingNodes] = useState<any[]>([]);
+  const [editingRelations, setEditingRelations] = useState<any[]>([]);
+
   useEffect(() => {
     if (!editor) return;
 
     function logChangeEvent(eventName: string) {
       setStoreEvents((events) => [eventName, ...events]);
     }
+
+    const handleMouseDown = () => {
+      // Only deal with breaking relations for singular nodes for now
+      if (selectedTreeNodes.length > 1 || selectedTreeNodes.length === 0) {
+        return;
+      }
+      setDragging(true);
+    }
+
+    let editingNodes: any[] = [];
+
+    const handleMouseUp = () => {
+      // TODOS TO FINISH BREAKING RELATION IMPLEMENTATION:
+      //    - ONLY REMOVE OBJECTS FROM THE ACTUAL RELATIONS THAT SHOULD BE BROKEN (I.E. IF X IS BROKEN AND Y OWNER IS THE SAME, SHOULD LEAVE THAT RELATION OVERALL)
+      //    - REMOVE RELATIONS THAT ARE NO LONGER RELEVANT (I.E. AN ALIGN/STACK THAT ONLY HAS 1 OBJECT)
+      if (selectedTreeNodes.length > 1 || selectedTreeNodes.length === 0) {
+        return;
+      }
+      const editingRelations = treeNodes.filter((node) => node.data.childrenIds && node.data.childrenIds.includes(selectedTreeNodes[0])).map((node) => node.recordId);
+      if (editingRelations.length === 0 || editingNodes.length === 0 || editingNodes[0] === undefined) {
+        return;
+      }
+
+      const selectedNodeId = selectedTreeNodes[0]
+      const updatedBBox = editingNodes[0]
+      const currentNodeIndex = _.findIndex(treeNodes, (node) => node.recordId === selectedNodeId);
+      const currentNode = treeNodes[currentNodeIndex]
+      let revertXPosition = false;
+      let revertYPosition = false;
+      if (currentNode.data.owned.x && Math.abs(updatedBBox.x - currentNode.data.owned.x) < 50) {
+        // threshold value of 100 for now
+        revertXPosition = true;
+      }
+      if (currentNode.data.owned.y && Math.abs(updatedBBox.y - currentNode.data.owned.y) < 50) {
+        // threshold value of 100 for now
+        revertYPosition = true;
+      }
+
+      if (revertXPosition || revertYPosition) {
+        const { updatedNodes, positionsToUpdate } = relayout(
+          treeNodes.map((treeNode: any) => {
+            if (treeNode.recordId !== selectedNodeId.id) return treeNode;
+            return {
+              ...currentNode,
+              data: {
+                ...currentNode.data,
+                bbox: {
+                  ...currentNode.data.bbox,
+                  x: revertXPosition ? undefined : updatedBBox.x,
+                  y: revertYPosition ? undefined : updatedBBox.y
+                }
+              }
+            };
+          }),
+          currentNodeIndex
+        );
+        setTreeNodes(updatedNodes);
+        setEditor(editor.updateShapes([{ id: selectedNodeId, type: "geo", x: currentNode.data.owned.x, y: currentNode.data.owned.y }]).updateShapes(positionsToUpdate).complete());
+      }
+      else {
+        // break relations
+        const { updatedNodes, positionsToUpdate } = relayout(treeNodes.map((node) => {
+          if (node.recordId === selectedNodeId) {
+            return {
+              ...currentNode,
+              data: {
+                ...currentNode.data,
+                bbox: {
+                  ...updatedBBox
+                },
+                owned: {
+                  x: undefined,
+                  y: undefined,
+                  xOwner: undefined,
+                  yOwner: undefined
+                }
+              }
+            }
+          }
+          if (editingRelations.includes(node.recordId)) {
+            return {
+              ...node,
+              children: node.children.filter((child) => child.recordId !== selectedNodeId),
+              data: {
+                ...node.data,
+                childrenIds: node.data.childrenIds.filter((childId) => childId !== selectedNodeId)
+              }
+            }; // handle breaking relations here
+          }
+          return node;
+        }), currentNodeIndex)
+        setTreeNodes(updatedNodes);
+        setEditor(editor.updateShapes(positionsToUpdate).complete());
+      }
+      // setEditingNodes([]);
+      editingNodes = [];
+      setEditingRelations([]);
+      setDragging(false);
+
+    }
+
 
     // This is the fire hose, it will be called at the end of every transaction
     const handleChangeEvent: TLEventMapHandler<"change"> = (change) => {
@@ -597,7 +723,6 @@ export default function Editor() {
                 from
               )} ${JSON.stringify(to)}`
             );
-
             if (from.type === "geo") {
               setTreeNodes((nodes) => {
                 const updatedNodes = nodes.map((node) => {
@@ -606,6 +731,15 @@ export default function Editor() {
                     // Debounce this?
                     // If moving 2 things and they're both aligned to each other, do we want to update the values?
                     const data = { ...node.data };
+                    if (selectedTreeNodes.length === 1) {
+
+                      editingNodes = [{
+                        x: to.x,
+                        y: to.y,
+                        width: to.props.w,
+                        height: to.props.h
+                      }]
+                    }
                     if (data.bbox.x !== undefined && to.x !== from.x)
                       data.bbox.x = to.x;
                     if (data.bbox.y !== undefined && to.y !== from.y)
@@ -848,9 +982,13 @@ export default function Editor() {
     };
 
     editor.on("change", handleChangeEvent);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', handleMouseDown);
 
     return () => {
       editor.off("change", handleChangeEvent);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousedown', handleMouseDown);
     };
   }, [editor, selectedTreeRelations, selectedTreeRelations.length, setEdges, setNodes]);
 
@@ -860,18 +998,18 @@ export default function Editor() {
         <TreeNodesContext.Provider value={treeNodesContextValue}>
           <EdgesContext.Provider value={{ edges, setEdges }}>
             <SelectionContext.Provider value={selectedTreeContextValue}>
-              <div style={{ display: "flex" }} >
+              <div style={{ display: "flex" }}>
                 <div className="treeview-container">
                   <button className="clear-button" onClick={clearAll}>Clear All Objects</button>
                   <TreeView data={treeNodes} />
                 </div>
-                <div className="tldraw-container">
+                <div className="tldraw-container" onKeyDown={handleKeyDown}>
                   <Tldraw
                     autoFocus
                     onUiEvent={handleUiEvent}
                     onMount={setAppToState}
                     overrides={overrides}
-                  />
+                  ><TLDrawHandler /></Tldraw>
                 </div>
                 <div className="panel-container"
                 >

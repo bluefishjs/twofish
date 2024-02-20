@@ -73,7 +73,7 @@ export function GeoPanel({ data }: GeoPanelProps) {
         <div>id: {data.id}</div>
         <div>
           <label htmlFor="x">x: </label>
-          {data.bbox.x !== undefined ? (
+          {data.bbox.x && data.owned.x === undefined ? (
             <input
               id="x"
               onChange={onChange}
@@ -87,7 +87,7 @@ export function GeoPanel({ data }: GeoPanelProps) {
         </div>
         <div>
           <label htmlFor="y">y: </label>
-          {data.bbox.y !== undefined ? (
+          {data.bbox.y && data.owned.y === undefined ? (
             <input
               id="y"
               type="number"

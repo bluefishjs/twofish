@@ -531,7 +531,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
             const orderedData = curNode.data.childrenIds.map((id: any) => _.find(updatedNodes, (n) => n.recordId === id))
                 .map((childNode: any) => childNode.data);
 
-            const { stackable, updatedPositions, sortedNodes, spacing, alignment } =
+            const { stackable, updatedPositions, sortedNodes, spacing, stackAlignment } =
                 getStackLayout(
                     orderedData,
                     curNode.data.data.direction,
@@ -568,6 +568,9 @@ export const relayout = (nodes: any[], indexChanged: number) => {
             const { backgroundPosition, backgroundBBox } = getBackgroundLayout(childrenData, curNode.data.data.padding, curNode.data.id);
             positionsToUpdate.push(backgroundPosition);
             updatedNodes.push({ ...curNode, data: { ...curNode.data, bbox: backgroundBBox } });
+        }
+        else {
+            updatedNodes.push({ ...curNode });
         }
     }
     console.log(positionsToUpdate);
