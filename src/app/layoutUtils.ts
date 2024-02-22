@@ -169,7 +169,7 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
         if (
             horizontalAlignments.includes(operation)
         ) {
-            if (updatedData.bbox.x === undefined) {
+            if (updatedData.owned.x !== undefined) {
                 return updatedData
             }
             updatedData.bbox.x = undefined;
@@ -193,7 +193,7 @@ export const getAlignLayout = (childrenData: any[], operation: string, uid: stri
                 x: updatedData.owned.x,
             });
         } else {
-            if (updatedData.bbox.y === undefined) {
+            if (updatedData.owned.y !== undefined) {
                 return updatedData
             }
             updatedData.bbox.y = undefined;
@@ -308,7 +308,7 @@ export const getStackLayout = (childrenData: any[], operation: string, uid: stri
         const  { alignable, updatedNodeData: alignedNodeData, alignX, alignY } = getAlignLayout(modifiedData, curAlignment, uid);
         if(alignable) {
             updatedNodeData = alignedNodeData ?? [];
-            alignment = alignment;
+            alignment = curAlignment;
             canAlign = true;
             break;
         }

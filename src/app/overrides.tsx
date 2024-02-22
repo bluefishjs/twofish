@@ -122,11 +122,16 @@ export const overrides: TLUiOverrides = {
       },
     };
   },
-  contextMenu(editor, contextMenu, { actions, oneSelected }) {
+  contextMenu(editor, contextMenu, { actions, oneSelected, twoSelected }) {
     if(oneSelected) {
       const backgroundMenuItem = menuItem(actions['add-background'])
       if(contextMenu[1].id === "modify" && contextMenu[1].children !== undefined)
-        contextMenu[1].children = [...contextMenu[1].children, backgroundMenuItem];
+        contextMenu[1].children = [contextMenu[1].children[0], backgroundMenuItem, ...contextMenu[1].children.splice(1)];
+    }
+    if(twoSelected) {
+      const stackMenuGroup = contextMenu[1].children[0].children[2].children
+      stackMenuGroup.push(menuItem(actions['stack-vertical']))
+      stackMenuGroup.push(menuItem(actions['stack-horizontal']))
     }
 		return contextMenu
 	},

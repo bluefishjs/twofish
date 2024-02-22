@@ -102,6 +102,7 @@ export default function Editor() {
     setTreeNodes([])
     setSelectedTreeNodes([])
     setSelectedTreeRelations([])
+
     setEditor((editor) => editor?.deleteShapes(Array.from(editor?.currentPageShapeIds)))
   }
 
@@ -483,6 +484,8 @@ export default function Editor() {
       const currentNode = treeNodes[currentNodeIndex]
       let revertXPosition = false;
       let revertYPosition = false;
+      // const nodesToDelete = 
+
       if (currentNode.data.owned.x && Math.abs(updatedBBox.x - currentNode.data.owned.x) < 50) {
         // threshold value of 100 for now
         revertXPosition = true;
@@ -515,6 +518,7 @@ export default function Editor() {
       }
       else {
         // break relations
+        const relationsToRemove: string[] = [];
         const { updatedNodes, positionsToUpdate } = relayout(treeNodes.map((node) => {
           if (node.recordId === selectedNodeId) {
             return {
@@ -534,6 +538,9 @@ export default function Editor() {
             }
           }
           if (editingRelations.includes(node.recordId)) {
+            if(node.data.childrenIds.length <= 1) {
+              relationsToRemove.push(node.recordId) // remove if nothing in the relation anymore
+            }
             return {
               ...node,
               children: node.children.filter((child) => child.recordId !== selectedNodeId),
@@ -545,7 +552,8 @@ export default function Editor() {
           }
           return node;
         }), currentNodeIndex)
-        setTreeNodes(updatedNodes);
+        setTreeNodes(updatedNodes.filter((node) => !relationsToRemove.includes(node.recordId)));
+        // setTreeNodes(updatedNodes);
         setEditor(editor.updateShapes(positionsToUpdate).complete());
       }
       // setEditingNodes([]);
