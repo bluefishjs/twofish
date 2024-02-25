@@ -10,7 +10,6 @@ type TreeViewProps = {
   data: any[];
 };
 
-
 const componentIcons = {
   [Component.Rect]: <i className="fa fa-regular fa-square"></i>,
   [Component.Stack]: <i className="fa fa-solid fa-bars"></i>,
@@ -19,16 +18,22 @@ const componentIcons = {
   [Component.Text]: <i className="fa fa-solid fa-font"></i>,
   [Component.Ellipse]: <i className="fa fa-regular fa-circle"></i>,
   [Component.Group]: <i className="fa fa-solid fa-layer-group"></i>,
-  [Component.Background]: <i className="fa fa-solid fa-square-poll-vertical"></i>,
+  [Component.Background]: (
+    <i className="fa fa-solid fa-square-poll-vertical"></i>
+  ),
   [Component.Other]: <i className="fa fa-solid fa-caret-up"></i>,
-}
+};
 
 // Tree view for twofish
 export function TreeView({ data }: TreeViewProps) {
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
-  const { selectedTreeNodes, selectedTreeRelations, setSelectedTreeNodes, setSelectedTreeRelations } =
-    useContext(SelectionContext);
+  const {
+    selectedTreeNodes,
+    selectedTreeRelations,
+    setSelectedTreeNodes,
+    setSelectedTreeRelations,
+  } = useContext(SelectionContext);
   const treeRef = useRef<TreeApi<any> | undefined>();
 
   useEffect(() => {
@@ -43,6 +48,7 @@ export function TreeView({ data }: TreeViewProps) {
   }, [selectedTreeNodes, selectedTreeRelations]);
 
   const onDelete = ({ ids }) => {
+    // call relayout
     setTreeNodes((treeNodes: any) => {
       return treeNodes
         .filter((treeNode: any) => !ids.includes(treeNode.recordId))
@@ -60,7 +66,7 @@ export function TreeView({ data }: TreeViewProps) {
             ),
             data: {
               ...treeNode.data,
-              childrenIds: treeNode.childrenIds.filter(
+              childrenIds: treeNode.data.childrenIds.filter(
                 (childId) => !ids.includes(childId)
               ),
             },
@@ -78,21 +84,19 @@ export function TreeView({ data }: TreeViewProps) {
     for (const node of tree.visibleNodes) {
       if (!node.isSelected && selectedTreeNodesSet.has(node.data.recordId)) {
         node.data.instanceSelected = true;
-      }
-      else {
+      } else {
         node.data.instanceSelected = false;
       }
     }
-  }
+  };
 
   return (
-    <div
-    >
+    <div>
       <h2 style={{ fontWeight: 600 }}>Objects</h2>
       <Tree
         data={data}
         width="13vw"
-        height={900}
+        height={700}
         padding={10}
         className="tree-body"
         onDelete={onDelete}
@@ -163,17 +167,23 @@ export function TreeNode({ node, style, dragHandle }: any) {
     <div
       style={{ ...style, border: "solid black", borderWidth: "0px 0 1px 0" }}
       ref={dragHandle}
-      className={`tree-node ${node.data.instanceSelected ? "instance-selected" : ""} ${node.isSelected ? "selected" : "unselected"}`}
+      className={`tree-node ${
+        node.data.instanceSelected ? "instance-selected" : ""
+      } ${node.isSelected ? "selected" : "unselected"}`}
       onClick={handleClick}
     >
-      {!node.isLeaf ? (
+      {!node.isLeaf && node.children.length > 0 ? (
         <button onClick={() => node.toggle()}>
-          {node.isOpen ? <i className="fa fa-solid fa-angle-down"></i> : <i className="fa fa-solid fa-angle-right"></i>}
+          {node.isOpen ? (
+            <i className="fa fa-solid fa-angle-down"></i>
+          ) : (
+            <i className="fa fa-solid fa-angle-right"></i>
+          )}
         </button>
       ) : (
         <span style={{ width: 16, display: "inline-block" }}></span>
       )}
-      {componentIcons[node.data.name as Component]}
+      {componentIcons[node.data.type as Component]}
       {node.data.name}
     </div>
   );

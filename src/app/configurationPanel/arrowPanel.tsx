@@ -9,18 +9,18 @@ type Point = {
   ref?: string; // if ref exists, x and y are normalized values. TODO: Find better way to represent this
 };
 
-type ArrowNodeData = {
+type ArrowPanelData = {
   start: Point;
   end: Point;
 };
 
-export type ArrowNodeProps = {
-  data: Node<ArrowNodeData>;
+export type ArrowPanelProps = {
+  data: Node<ArrowPanelData>;
 };
 
 // const handleStyle = { left: 10 };
 
-export function ArrowNode({ data }: ArrowNodeProps) {
+export function ArrowPanel({ data }: ArrowPanelProps) {
   console.log(data);
   const onChange = useCallback((evt: any) => {
     console.log(evt);

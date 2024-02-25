@@ -1,4 +1,4 @@
-import { useCallback, useContext } from "react";
+import { useCallback, useContext, useState } from "react";
 import "./panel.css";
 import { EditorContext, TreeNodesContext } from "../editor";
 import { isNumeric } from "../utils";
@@ -22,12 +22,37 @@ enum TextChangeTarget {
 
 export function TextPanel({ data }: TextPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
-  const {treeNodes, setTreeNodes} = useContext(TreeNodesContext);
+  const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
+  const [name, setName] = useState(data.name);
+
+  const changeName = (evt: any) => {
+    setName(evt.target.value);
+    setTreeNodes(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) {
+          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
+            return {
+              ...treeNode,
+              children: treeNode.children.map((child) =>
+                child.recordId === data.id
+                  ? { ...child, name: evt.target.value }
+                  : child
+              ),
+            };
+          return treeNode;
+        }
+        return {
+          ...treeNode,
+          name: evt.target.value,
+        };
+      })
+    );
+  };
 
   const onChange = useCallback((evt: any, target: TextChangeTarget) => {
     console.log(evt);
 
-    let updatedData = {...data};
+    let updatedData = { ...data };
     let updatedValues: any = {
       id: data.id,
       type: "geo",
@@ -71,13 +96,16 @@ export function TextPanel({ data }: TextPanelProps) {
     );
     setTreeNodes(updatedNodes);
     editor.updateShapes([updatedValues]).updateShapes(positionsToUpdate);
-    
   }, []);
 
   return (
     <div className="panel">
       <h2 className="header">Text</h2>
       <div className="properties">
+        <div>
+          <label htmlFor="name">name: </label>
+          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
+        </div>
         <div>
           <label htmlFor="x">x: </label>
           {data.bbox.x !== undefined ? (

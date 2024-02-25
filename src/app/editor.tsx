@@ -25,16 +25,10 @@ import {
 } from "react";
 
 import ReactFlow, {
-  ReactFlowProvider,
   useEdgesState,
   useNodesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { ArrowNode } from "./nodes/arrowNode";
-import { AlignNode } from "./nodes/alignNode";
-import { GeoNode } from "./nodes/geoNode";
-import { StackNode } from "./nodes/stackNode";
-import { TextNode } from "./nodes/textNode";
 import { Node, Component } from "./nodes/node";
 import { overrides } from "./overrides";
 import { getBBox } from "./utils";
@@ -50,52 +44,16 @@ export const EdgesContext = createContext<any>(undefined);
 export const SelectionContext = createContext<any>(undefined);
 
 
-function TLDrawHandler() {
-  const editor = useEditor();
-
-  // useEffect(() => {
-  //   const handleChangeEvent = () => console.log(editor)
-  //   editor.on("change", handleChangeEvent);
-  //   return () => {
-  //     editor.off("change", handleChangeEvent);
-  //   };
-  // })
-  return null;
-}
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
-  const [selectedNodes, setSelectedNodes] = useState(Array<string>());
   const [selectedTreeNodes, setSelectedTreeNodes] = useState(Array<any>());
   const [selectedTreeRelations, setSelectedTreeRelations] = useState(
     Array<{ recordId: any; childrenIds: any[] }>()
   );
-  const [selectedShapeIds, setSelectedShapeIds] = useState(Array<string>());
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const [treeNodes, setTreeNodes] = useState(Array<any>());
-
-  const flowNodes = useMemo(
-    () =>
-      treeNodes.map((treeNode) => ({
-        id: treeNode.recordId,
-        type: treeNode.nodeType,
-        position: treeNode.position,
-        data: treeNode.data,
-      })),
-    [treeNodes]
-  );
-
-  const nodeTypes = useMemo(
-    () => ({
-      geoNode: GeoNode,
-      alignNode: AlignNode,
-      stackNode: StackNode,
-      arrowNode: ArrowNode,
-      textNode: TextNode,
-    }),
-    []
-  );
 
   // Clear all shapes from Twofish
   const clearAll = (evt: any) => {
@@ -105,28 +63,6 @@ export default function Editor() {
 
     setEditor((editor) => editor?.deleteShapes(Array.from(editor?.currentPageShapeIds)))
   }
-
-  const onSelectionChange = (evt: any) => {
-    const newSelectedNodes = evt.nodes;
-    const selectedShapeIdsSet: Set<string> = new Set<string>();
-    for (const node of newSelectedNodes) {
-      if (node.type === "alignNode" || node.type === "stackNode") {
-        // prevent duplicate values
-        (node.data.childrenIds ?? []).forEach((item: string) =>
-          selectedShapeIdsSet.add(item)
-        );
-      } else selectedShapeIdsSet.add(node.id);
-    }
-    const newSelectedShapeIds = Array.from(selectedShapeIdsSet).toSorted();
-    if (_.isEqual(selectedShapeIds, newSelectedShapeIds)) {
-      return;
-    }
-    setSelectedNodes(newSelectedNodes.map((node: any) => node.id));
-    setSelectedShapeIds(newSelectedShapeIds);
-    setEditor((editor) => {
-      return editor?.select(...(newSelectedShapeIds as TLShapeId[]));
-    });
-  };
 
   const editorContextValue = useMemo(
     () => ({
@@ -160,14 +96,6 @@ export default function Editor() {
       selectedTreeRelations,
       setSelectedTreeRelations,
     ]
-  );
-
-  const memoizedSelectedNodes = useMemo(
-    () => ({
-      selectedNodes,
-      setSelectedNodes,
-    }),
-    [selectedNodes, setSelectedNodes]
   );
 
   // Types of edges in graph
@@ -240,7 +168,7 @@ export default function Editor() {
               id: uniqueId(),
               recordId: node.recordId,
               name: node.data.name,
-              type: node.data.type,
+              type: node.type,
               instanceSelected: false,
             });
 
@@ -416,6 +344,7 @@ export default function Editor() {
                 id: uniqueId(),
                 recordId: data.id,
                 name: data.name,
+                type: data.type
               })),
               data: {
                 id: id,
@@ -444,7 +373,7 @@ export default function Editor() {
   }, []);
 
   const [storeEvents, setStoreEvents] = useState<string[]>([]);
-
+  const [selectedShapeBounds, setSelectedShapeBounds] = useState<any>();
   const [dragging, setDragging] = useState<boolean>(false);
   // const [editingNodes, setEditingNodes] = useState<any[]>([]);
   const [editingRelations, setEditingRelations] = useState<any[]>([]);
@@ -461,6 +390,10 @@ export default function Editor() {
       if (selectedTreeNodes.length > 1 || selectedTreeNodes.length === 0) {
         return;
       }
+
+      setSelectedShapeBounds(getBBox([_.find(treeNodes, (node) => node.id === selectedTreeNodes[0])]))
+      // show highlight area
+
       setDragging(true);
     }
 
@@ -538,7 +471,7 @@ export default function Editor() {
             }
           }
           if (editingRelations.includes(node.recordId)) {
-            if(node.data.childrenIds.length <= 1) {
+            if (node.data.childrenIds.length <= 1) {
               relationsToRemove.push(node.recordId) // remove if nothing in the relation anymore
             }
             return {
@@ -573,7 +506,7 @@ export default function Editor() {
             logChangeEvent(
               `created shape (${record.type}) ${JSON.stringify(record)}`
             );
-            let data: Node<any> = {
+            let data: TreeNode<any> = {
               id: record.id,
               bbox: {
                 x: record.x,
@@ -588,15 +521,19 @@ export default function Editor() {
                 .toUpperCase()
                 .concat(record.props.geo.slice(1));
               let name: Component = Component.Other;
+              let type: Component = Component.Other;
               if (record.props.geo === "rectangle") {
                 shapeName = "Rect";
                 name = Component.Rect;
+                type = Component.Rect;
               } else if (record.props.geo === "ellipse") {
                 name = Component.Ellipse;
+                type = Component.Ellipse;
               }
               data = {
                 ...data,
                 name: name,
+                type: type,
                 bbox: {
                   ...data.bbox,
                   width: record.props.w,
@@ -618,8 +555,8 @@ export default function Editor() {
                 return nodes.concat({
                   id: record.id,
                   recordId: record.id,
-                  name: shapeName,
-                  type: shapeName,
+                  name: name,
+                  type: type,
                   nodeType: "geoNode",
                   position: { x: record.x, y: record.y },
                   data: data,
@@ -666,6 +603,7 @@ export default function Editor() {
               setTreeNodes((nodes) =>
                 nodes.concat({
                   id: record.id,
+                  recordId: record.id,
                   name: Component.Arrow,
                   type: Component.Arrow,
                   nodeType: "arrowNode",
@@ -851,29 +789,29 @@ export default function Editor() {
                   };
                 });
               });
-              setNodes((nodes) => {
-                const updatedNodes = nodes.map((node) => {
-                  if (node.id === from.id) {
-                    const data = { ...node.data };
-                    if (to.x !== from.x) data.bbox.x = to.x;
-                    if (to.y !== from.y) data.bbox.y = to.y;
-                    if (to.props.w !== from.props.w)
-                      data.bbox.width = to.props.w;
-                    if (to.props.text !== from.props.text) {
-                      data.data.content = to.props.text;
-                      // TODO: make this better -- this is just a bandaid way to get the height of text
-                      data.bbox.height =
-                        20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
-                    }
-                    return {
-                      ...node,
-                      data: data,
-                    };
-                  }
-                  return node;
-                });
-                return updatedNodes;
-              });
+              // setNodes((nodes) => {
+              //   const updatedNodes = nodes.map((node) => {
+              //     if (node.id === from.id) {
+              //       const data = { ...node.data };
+              //       if (to.x !== from.x) data.bbox.x = to.x;
+              //       if (to.y !== from.y) data.bbox.y = to.y;
+              //       if (to.props.w !== from.props.w)
+              //         data.bbox.width = to.props.w;
+              //       if (to.props.text !== from.props.text) {
+              //         data.data.content = to.props.text;
+              //         // TODO: make this better -- this is just a bandaid way to get the height of text
+              //         data.bbox.height =
+              //           20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
+              //       }
+              //       return {
+              //         ...node,
+              //         data: data,
+              //       };
+              //     }
+              //     return node;
+              //   });
+              //   return updatedNodes;
+              // });
             }
           } else if (
             from.typeName === "instance_page_state" &&
@@ -935,38 +873,36 @@ export default function Editor() {
                 ];
               });
 
-              // const toIds = to.selectedIds.map((id) => id as string);
-              // if (selectedTreeRelations.length === 0)
-              //   setSelectedTreeNodes(toIds);
             }
           }
         }
 
         // Removed
         for (const record of Object.values(change.changes.removed)) {
+          // call relayout
           if (record.typeName === "shape") {
             logChangeEvent(`deleted shape (${record.type})`);
             if (record.type === "group") {
               // filter out parent id if node is a group
-              setNodes((nodes) => {
-                const parentPosition = nodes.find(
-                  (n) => n.id === record.id
-                )!.position;
+              // setNodes((nodes) => {
+              //   const parentPosition = nodes.find(
+              //     (n) => n.id === record.id
+              //   )!.position;
 
-                return nodes.map((node) => {
-                  if (node.parentNode === record.id) {
-                    return {
-                      ...node,
-                      position: {
-                        x: node.position.x + parentPosition.x,
-                        y: node.position.y + parentPosition.y,
-                      },
-                      parentNode: undefined,
-                    };
-                  }
-                  return node;
-                });
-              });
+              //   return nodes.map((node) => {
+              //     if (node.parentNode === record.id) {
+              //       return {
+              //         ...node,
+              //         position: {
+              //           x: node.position.x + parentPosition.x,
+              //           y: node.position.y + parentPosition.y,
+              //         },
+              //         parentNode: undefined,
+              //       };
+              //     }
+              //     return node;
+              //   });
+              // });
             }
             setTreeNodes((nodes) =>
               nodes
@@ -978,7 +914,7 @@ export default function Editor() {
                 }))
                 .filter((node: any) => node.recordId !== record.id)
             );
-            setNodes((nodes) => nodes.filter((node) => node.id !== record.id));
+            // setNodes((nodes) => nodes.filter((node) => node.id !== record.id));
             setEdges((edges) =>
               edges.filter(
                 (edge) => edge.target !== record.id && edge.source !== record.id
@@ -1017,21 +953,12 @@ export default function Editor() {
                     onUiEvent={handleUiEvent}
                     onMount={setAppToState}
                     overrides={overrides}
-                  ><TLDrawHandler /></Tldraw>
+                  />
+                  {/* {selectedShapeBounds && <DraggingBounds bounds={selectedShapeBounds} rotation={0}/>} */}
                 </div>
                 <div className="panel-container"
                 >
                   <Panel />
-                  {/* <ReactFlowProvider>
-                        <ReactFlow
-                          nodeTypes={nodeTypes}
-                          nodes={flowNodes}
-                          edges={edges}
-                          onNodesChange={onNodesChange}
-                          onEdgesChange={onEdgesChange}
-                          onSelectionChange={onSelectionChange}
-                        />
-                      </ReactFlowProvider> */}
                 </div>
               </div>
             </SelectionContext.Provider>

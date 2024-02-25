@@ -13,14 +13,13 @@ import _ from "lodash";
 import { AlignPanel } from "./alignPanel";
 import { Component } from "./node";
 import { BackgroundPanel } from "./backgroundPanel";
+import { ArrowPanel } from "./arrowPanel";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
   const { treeNodes } = useContext(TreeNodesContext);
   let selectedRecordId =
-    selectedTreeNodes[0] !== undefined
-      ? selectedTreeNodes[0]
-      : undefined;
+    selectedTreeNodes[0] !== undefined ? selectedTreeNodes[0] : undefined;
   const selectedRecord = _.find(
     treeNodes,
     (node) => node.recordId === selectedRecordId
@@ -28,7 +27,7 @@ export function Panel() {
   let configInfo = <></>;
   if (selectedTreeNodes.length === 1) {
     if (selectedRecord !== undefined) {
-      switch (selectedRecord.name) {
+      switch (selectedRecord.type) {
         case Component.Stack:
           configInfo = <StackPanel {...selectedRecord} />;
           break;
@@ -46,6 +45,9 @@ export function Panel() {
           break;
         case Component.Background:
           configInfo = <BackgroundPanel {...selectedRecord} />;
+          break;
+        case Component.Arrow:
+          configInfo = <ArrowPanel {...selectedRecord} />;
           break;
         default:
           configInfo = <h2>{selectedRecord.name} </h2>;

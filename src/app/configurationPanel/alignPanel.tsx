@@ -3,7 +3,12 @@ import "./panel.css";
 import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import _ from "lodash";
-import { getAlignAxes, getAlignLayout, horizontalAlignments, relayout } from "../layoutUtils";
+import {
+  getAlignAxes,
+  getAlignLayout,
+  horizontalAlignments,
+  relayout,
+} from "../layoutUtils";
 
 export type HorizontalAlignment = "left" | "center-horizontal" | "right";
 export type VerticalAlignment = "top" | "center-vertical" | "bottom";
@@ -29,14 +34,39 @@ export function AlignPanel({ data }: AlignPanelProps) {
   const [alignment, setAlignment] = useState(data.data.alignment);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
+  const [name, setName] = useState(data.name);
+
+  const changeName = (evt: any) => {
+    setName(evt.target.value);
+    setTreeNodes(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) {
+          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
+            return {
+              ...treeNode,
+              children: treeNode.children.map((child) =>
+                child.recordId === data.id
+                  ? { ...child, name: evt.target.value }
+                  : child
+              ),
+            };
+          return treeNode;
+        }
+        return {
+          ...treeNode,
+          name: evt.target.value,
+        };
+      })
+    );
+  };
 
   const onChange = useCallback(
     (evt: any, changeTarget: ChangeTarget) => {
       let alignmentData: {
-        id: string,
-        alignment: Alignment,
-        alignX: number | undefined,
-        alignY: number | undefined
+        id: string;
+        alignment: Alignment;
+        alignX: number | undefined;
+        alignY: number | undefined;
       } = {
         id: data.id,
         alignment: data.data.alignment,
@@ -104,9 +134,13 @@ export function AlignPanel({ data }: AlignPanelProps) {
               ...node.data,
               data: {
                 alignment: alignmentData.alignment,
-                x: horizontalAlignments.includes(alignment) ? alignX : undefined,
-                y: horizontalAlignments.includes(alignment) ? undefined : alignY,
-              }
+                x: horizontalAlignments.includes(alignment)
+                  ? alignX
+                  : undefined,
+                y: horizontalAlignments.includes(alignment)
+                  ? undefined
+                  : alignY,
+              },
             },
           };
         if (!data.childrenIds?.includes(node.id)) {
@@ -117,11 +151,6 @@ export function AlignPanel({ data }: AlignPanelProps) {
           data: _.find(updatedNodeData, (data) => data.id === node.id),
         };
       });
-      // data.data.alignment = alignmentData.alignment;
-
-      // should never reach second case? But will have to test
-      // data.data.x = alignX ?? 0;
-      // data.data.y = alignY ?? 0;
       const index = _.findIndex(
         updatedAlignNodes,
         (node: any) => node.id === data.id
@@ -155,6 +184,10 @@ export function AlignPanel({ data }: AlignPanelProps) {
     <div className="panel">
       <h2 className="header">Align</h2>
       <div className="properties">
+        <div>
+          <label htmlFor="name">name: </label>
+          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
+        </div>
         <div>
           <label htmlFor="alignment">alignment: </label>
           <select

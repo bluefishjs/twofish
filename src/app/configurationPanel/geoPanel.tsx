@@ -1,4 +1,4 @@
-import { useCallback, useContext } from "react";
+import { useCallback, useContext, useState } from "react";
 import "./panel.css";
 import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
@@ -17,8 +17,34 @@ export function GeoPanel({ data }: GeoPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
 
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
+  const [name, setName] = useState(data.name);
 
   const updatedData = { ...data };
+
+  const changeName = (evt: any) => {
+    setName(evt.target.value);
+    setTreeNodes(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) {
+          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
+            return {
+              ...treeNode,
+              children: treeNode.children.map((child) =>
+                child.recordId === data.id
+                  ? { ...child, name: evt.target.value }
+                  : child
+              ),
+            };
+          return treeNode;
+        }
+        return {
+          ...treeNode,
+          name: evt.target.value,
+        };
+      })
+    );
+  };
+
   const onChange = useCallback((evt: any) => {
     let updatedValues: any = {
       id: data.id,
@@ -70,7 +96,10 @@ export function GeoPanel({ data }: GeoPanelProps) {
     <div className="panel">
       <h2 className="header">{data.data.shapeName}</h2>
       <div className="properties">
-        <div>id: {data.id}</div>
+        <div>
+          <label htmlFor="name">name: </label>
+          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
+        </div>
         <div>
           <label htmlFor="x">x: </label>
           {data.bbox.x && data.owned.x === undefined ? (
