@@ -11,13 +11,14 @@ export type BackgroundPanelData = {
 
 export type BackgroundPanelProps = {
     data: Node<BackgroundPanelData>;
+    name: string;
 };
 
 enum BackgroundChangeTarget {
     padding
 }
 
-export function BackgroundPanel({ data }: BackgroundPanelProps) {
+export function BackgroundPanel({ data, name }: BackgroundPanelProps) {
     const { editor, setEditor } = useContext(EditorContext);
     const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
 
@@ -26,7 +27,6 @@ export function BackgroundPanel({ data }: BackgroundPanelProps) {
             .filter((node: any) => data.childrenIds?.includes(node.recordId))
             .map((node: any) => node.data);
         const { backgroundBBox, backgroundPosition } = getBackgroundLayout(childrenData, +evt.target.value as number, data.id);
-        console.log(backgroundBBox, backgroundPosition);
         const index = _.findIndex(
             treeNodes,
             (node: any) => node.recordId === data.id

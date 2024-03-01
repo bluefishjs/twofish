@@ -11,18 +11,19 @@ export type GeoPanelData = {
 
 export type GeoPanelProps = {
   data: Node<GeoPanelData>;
+  name: string;
 };
 
-export function GeoPanel({ data }: GeoPanelProps) {
+export function GeoPanel({ data, name }: GeoPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
 
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
-  const [name, setName] = useState(data.name);
+  const [nodeName, setNodeName] = useState(name);
 
   const updatedData = { ...data };
 
   const changeName = (evt: any) => {
-    setName(evt.target.value);
+    setNodeName(evt.target.value);
     setTreeNodes(
       treeNodes.map((treeNode: any) => {
         if (treeNode.recordId !== data.id) {

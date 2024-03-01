@@ -16,6 +16,7 @@ type ArrowPanelData = {
 
 export type ArrowPanelProps = {
   data: Node<ArrowPanelData>;
+  name: string;
 };
 
 // const handleStyle = { left: 10 };

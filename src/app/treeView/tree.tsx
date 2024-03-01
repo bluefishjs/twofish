@@ -1,10 +1,10 @@
 import { Tree, TreeApi } from "react-arborist";
-import { IconoirProvider, NavArrowDown, NavArrowRight } from "iconoir-react";
 import { useContext, useEffect, useRef } from "react";
 import { SelectionContext, TreeNodesContext, EditorContext } from "../editor";
 import { Component } from "../configurationPanel/node";
 import _ from "lodash";
 import "./tree.css";
+import { relayout } from "../layoutUtils";
 
 type TreeViewProps = {
   data: any[];
@@ -13,6 +13,7 @@ type TreeViewProps = {
 const componentIcons = {
   [Component.Rect]: <i className="fa fa-regular fa-square"></i>,
   [Component.Stack]: <i className="fa fa-solid fa-bars"></i>,
+  [Component.Line]: <i className="fa fa-solid fa-grip-lines"></i>,
   [Component.Align]: <i className="fa-solid fa-align-left"></i>,
   [Component.Arrow]: <i className="fa fa-solid fa-rotate-left"></i>,
   [Component.Text]: <i className="fa fa-solid fa-font"></i>,
@@ -49,31 +50,68 @@ export function TreeView({ data }: TreeViewProps) {
 
   const onDelete = ({ ids }) => {
     // call relayout
-    setTreeNodes((treeNodes: any) => {
-      return treeNodes
-        .filter((treeNode: any) => !ids.includes(treeNode.recordId))
+
+    const idsSet = new Set(ids);
+    // if any of them are relations, give relevant positions back to children
+
+    const { updatedNodes, positionsToUpdate } = relayout(
+      treeNodes
+        .filter((treeNode: any) => !idsSet.has(treeNode.recordId))
         .map((treeNode: any) => {
+          const updatedTreeNode = { ...treeNode };
+          if (treeNode.data.owned && idsSet.has(treeNode.data.owned.xOwner)) {
+            updatedTreeNode.data = {
+              ...updatedTreeNode.data,
+              bbox: {
+                ...updatedTreeNode.data.bbox,
+                x: treeNode.data.owned.x ?? treeNode.data.bbox.x,
+              },
+              owned: {
+                ...updatedTreeNode.data.owned,
+                x: undefined,
+                xOwner: undefined,
+              },
+            };
+          }
+          if (treeNode.data.owned && idsSet.has(treeNode.data.owned.yOwner)) {
+            updatedTreeNode.data = {
+              ...updatedTreeNode.data,
+              bbox: {
+                ...updatedTreeNode.data.bbox,
+                y: treeNode.data.owned.y ?? treeNode.data.bbox.y,
+              },
+              owned: {
+                ...updatedTreeNode.data.owned,
+                y: undefined,
+                yOwner: undefined,
+              },
+            };
+          }
           if (
             !treeNode.data.childrenIds ||
             treeNode.data.childrenIds.length == 0
           ) {
-            return treeNode;
+            return updatedTreeNode;
           }
           return {
-            ...treeNode,
-            children: treeNode.children.filter(
+            ...updatedTreeNode,
+            children: updatedTreeNode.children.filter(
               (child) => !ids.includes(child.recordId)
             ),
             data: {
-              ...treeNode.data,
-              childrenIds: treeNode.data.childrenIds.filter(
+              ...updatedTreeNode.data,
+              childrenIds: updatedTreeNode.data.childrenIds.filter(
                 (childId) => !ids.includes(childId)
               ),
             },
           };
-        });
-    });
-    setEditor(editor.deleteShapes(ids).complete());
+        }),
+      0
+    );
+    setTreeNodes(updatedNodes);
+    setEditor(
+      editor.deleteShapes(ids).updateShapes(positionsToUpdate).complete()
+    );
   };
 
   const onSelect = (nodes: any) => {
@@ -111,7 +149,6 @@ export function TreeView({ data }: TreeViewProps) {
 
 export function TreeNode({ node, style, dragHandle }: any) {
   /* This node instance can do many things. See the API reference. */
-  // console.log(node);
   const {
     setSelectedTreeNodes,
     selectedTreeNodes,
@@ -163,16 +200,20 @@ export function TreeNode({ node, style, dragHandle }: any) {
     }
   };
 
+  const hasChildren = node.children && node.children.length > 0;
+
   return (
     <div
       style={{ ...style, border: "solid black", borderWidth: "0px 0 1px 0" }}
       ref={dragHandle}
       className={`tree-node ${
-        node.data.instanceSelected ? "instance-selected" : ""
-      } ${node.isSelected ? "selected" : "unselected"}`}
+        node.data.instanceSelected ? "node-instance-selected" : ""
+      } ${node.isSelected ? "node-selected" : "node-unselected"} ${
+        hasChildren ? "node-has-children" : ""
+      }`}
       onClick={handleClick}
     >
-      {!node.isLeaf && node.children.length > 0 ? (
+      {hasChildren ? (
         <button onClick={() => node.toggle()}>
           {node.isOpen ? (
             <i className="fa fa-solid fa-angle-down"></i>

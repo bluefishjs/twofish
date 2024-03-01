@@ -4,7 +4,6 @@ import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import _ from "lodash";
 import {
-  getAlignAxes,
   getAlignLayout,
   horizontalAlignments,
   relayout,
@@ -22,6 +21,7 @@ export type AlignPanelData = {
 
 export type AlignPanelProps = {
   data: Node<AlignPanelData>;
+  name: string;
 };
 
 enum ChangeTarget {
@@ -30,14 +30,14 @@ enum ChangeTarget {
   y,
 }
 
-export function AlignPanel({ data }: AlignPanelProps) {
+export function AlignPanel({ data, name }: AlignPanelProps) {
   const [alignment, setAlignment] = useState(data.data.alignment);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
-  const [name, setName] = useState(data.name);
+  const [nodeName, setNodeName] = useState(name);
 
   const changeName = (evt: any) => {
-    setName(evt.target.value);
+    setNodeName(evt.target.value);
     setTreeNodes(
       treeNodes.map((treeNode: any) => {
         if (treeNode.recordId !== data.id) {
@@ -186,7 +186,7 @@ export function AlignPanel({ data }: AlignPanelProps) {
       <div className="properties">
         <div>
           <label htmlFor="name">name: </label>
-          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
+          <input id="name" onChange={changeName} value={nodeName ?? ""} size={5} />
         </div>
         <div>
           <label htmlFor="alignment">alignment: </label>

@@ -14,6 +14,7 @@ export type StackPanelData = {
 
 export type StackPanelProps = {
   data: Node<StackPanelData>;
+  name: string;
 };
 
 enum StackChangeTarget {
@@ -22,12 +23,36 @@ enum StackChangeTarget {
   spacing,
 }
 
-export function StackPanel({ data }: StackPanelProps) {
+export function StackPanel({ data, name }: StackPanelProps) {
   const [direction, setDirection] = useState(data.data.direction);
   const [alignment, setAlignment] = useState(data.data.alignment);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
   const { editor, setEditor } = useContext(EditorContext);
+  const [nodeName, setNodeName] = useState(name);
 
+  const changeName = (evt: any) => {
+    setNodeName(evt.target.value);
+    setTreeNodes(
+      treeNodes.map((treeNode: any) => {
+        if (treeNode.recordId !== data.id) {
+          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
+            return {
+              ...treeNode,
+              children: treeNode.children.map((child) =>
+                child.recordId === data.id
+                  ? { ...child, name: evt.target.value }
+                  : child
+              ),
+            };
+          return treeNode;
+        }
+        return {
+          ...treeNode,
+          name: evt.target.value,
+        };
+      })
+    );
+  };
   const onChange = useCallback(
     (evt: any, target: StackChangeTarget) => {
       const updatedDirection =
@@ -51,20 +76,15 @@ export function StackPanel({ data }: StackPanelProps) {
         return;
       }
 
-      const {
-        stackable,
-        updatedPositions,
-        sortedNodes,
-        spacing,
-        stackAlignment,
-      } = getStackLayout(
-        orderedNodes,
-        updatedDirection,
-        data.id,
-        updatedSpacing,
-        true,
-        target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
-      );
+      const { stackable, updatedPositions, sortedNodes, stackAlignment } =
+        getStackLayout(
+          orderedNodes,
+          updatedDirection,
+          data.id,
+          updatedSpacing,
+          true,
+          target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
+        );
 
       if (!stackable) {
         console.log("[stack] can't change stack");
@@ -122,13 +142,27 @@ export function StackPanel({ data }: StackPanelProps) {
         setAlignment(stackAlignment ?? updatedAlignment);
       }
     },
-    [direction, data.data, data.childrenIds, data.id, alignment, treeNodes, setEditor, editor, setTreeNodes]
+    [
+      direction,
+      data.data,
+      data.childrenIds,
+      data.id,
+      alignment,
+      treeNodes,
+      setEditor,
+      editor,
+      setTreeNodes,
+    ]
   );
 
   return (
     <div className="panel">
       <h2 className="header">Stack</h2>
       <div className="properties">
+        <div>
+          <label htmlFor="name">name: </label>
+          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
+        </div>
         <div>
           <input
             type="radio"

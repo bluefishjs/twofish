@@ -12,6 +12,7 @@ export type TextPanelData = {
 
 export type TextPanelProps = {
   data: Node<TextPanelData>;
+  name: string;
 };
 
 enum TextChangeTarget {
@@ -20,13 +21,13 @@ enum TextChangeTarget {
   content,
 }
 
-export function TextPanel({ data }: TextPanelProps) {
+export function TextPanel({ data, name }: TextPanelProps) {
   const { editor, setEditor } = useContext(EditorContext);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
-  const [name, setName] = useState(data.name);
+  const [nodeName, setNodeName] = useState(data.name);
 
   const changeName = (evt: any) => {
-    setName(evt.target.value);
+    setNodeName(evt.target.value);
     setTreeNodes(
       treeNodes.map((treeNode: any) => {
         if (treeNode.recordId !== data.id) {

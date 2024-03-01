@@ -1,4 +1,4 @@
-.tree-node.selected {
+.node-selected {
     background-color: #95cdf3;
 }
 
@@ -10,6 +10,14 @@
     height: 100vh;
 }
 
-.instance-selected {
+.node-instance-selected {
     background-color: #c8e1f2;
+}
+
+.node-has-children {
+    font-style:italic;
+}
+
+.node-has-children button {
+    color: black;
 }

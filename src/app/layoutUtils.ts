@@ -330,7 +330,7 @@ export const getStackLayout = (childrenData: any[], operation: string, uid: stri
                     return a_x < b_x ? -1 : a_x > b_x ? 1 : 0;
                 }
                 const a_y = a.bbox.y ?? a.owned.y;
-                const b_y = a.bbox.y ?? a.owned.y;
+                const b_y = b.bbox.y ?? b.owned.y;
                 return a_y < b_y ? -1 : a_y > b_y ? 1 : 0;
             })
             .map((data, i) => ({ index: i, data: { ...data } }));

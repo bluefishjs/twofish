@@ -14,6 +14,7 @@ import { AlignPanel } from "./alignPanel";
 import { Component } from "./node";
 import { BackgroundPanel } from "./backgroundPanel";
 import { ArrowPanel } from "./arrowPanel";
+import { LinePanel } from "./linePanel";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
@@ -39,6 +40,9 @@ export function Panel() {
           break;
         case Component.Ellipse:
           configInfo = <GeoPanel {...selectedRecord} />;
+          break;
+        case Component.Line:
+          configInfo = <LinePanel {...selectedRecord} />;
           break;
         case Component.Text:
           configInfo = <TextPanel {...selectedRecord} />;
