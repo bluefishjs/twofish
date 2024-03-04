@@ -4,6 +4,7 @@ import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import _ from "lodash";
 import { relayout } from "../layoutUtils";
+import { NumericInput } from "./inputModes";
 
 export type GeoPanelData = {
   shapeName: string;
@@ -55,10 +56,10 @@ export function GeoPanel({ data, name }: GeoPanelProps) {
 
     const targetId = evt.target.id;
     const targetValue = evt.target.value;
-    if (targetId === "w") {
+    if (targetId === "width") {
       updatedValues.props = { w: +targetValue as number };
       updatedData.bbox.width = +targetValue as number;
-    } else if (targetId === "h") {
+    } else if (targetId === "height") {
       updatedValues.props = { h: +targetValue as number };
       updatedData.bbox.height = +targetValue as number;
     } else if (targetId === "x") {
@@ -101,63 +102,18 @@ export function GeoPanel({ data, name }: GeoPanelProps) {
           <label htmlFor="name">name: </label>
           <input id="name" onChange={changeName} value={name ?? ""} size={5} />
         </div>
-        <div>
-          <label htmlFor="x">x: </label>
-          {data.bbox.x && data.owned.x === undefined ? (
-            <input
-              id="x"
-              onChange={onChange}
-              type="number"
-              value={Math.round(data.bbox.x)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
-        <div>
-          <label htmlFor="y">y: </label>
-          {data.bbox.y && data.owned.y === undefined ? (
-            <input
-              id="y"
-              type="number"
-              onChange={onChange}
-              value={Math.round(data.bbox.y)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="w">width: </label>
-          {data.bbox.width !== undefined ? (
-            <input
-              id="w"
-              type="number"
-              onChange={onChange}
-              value={Math.round(data.bbox.width)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
-        <div>
-          <label htmlFor="h">height: </label>
-          {data.bbox.height !== undefined ? (
-            <input
-              id="h"
-              onChange={onChange}
-              type="number"
-              value={Math.round(data.bbox.height)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
+        <NumericInput label={"x"} value={data.bbox.x} onChange={onChange} />
+        <NumericInput label={"y"} value={data.bbox.y} onChange={onChange} />
+        <NumericInput
+          label={"width"}
+          value={data.bbox.width}
+          onChange={onChange}
+        />
+        <NumericInput
+          label={"height"}
+          value={data.bbox.height}
+          onChange={onChange}
+        />
       </div>
     </div>
   );

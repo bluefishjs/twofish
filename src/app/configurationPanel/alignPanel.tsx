@@ -3,11 +3,8 @@ import "./panel.css";
 import { EditorContext, NodesContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import _ from "lodash";
-import {
-  getAlignLayout,
-  horizontalAlignments,
-  relayout,
-} from "../layoutUtils";
+import { getAlignLayout, horizontalAlignments, relayout } from "../layoutUtils";
+import { NumericInput } from "./inputModes";
 
 export type HorizontalAlignment = "left" | "center-horizontal" | "right";
 export type VerticalAlignment = "top" | "center-vertical" | "bottom";
@@ -186,7 +183,12 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
       <div className="properties">
         <div>
           <label htmlFor="name">name: </label>
-          <input id="name" onChange={changeName} value={nodeName ?? ""} size={5} />
+          <input
+            id="name"
+            onChange={changeName}
+            value={nodeName ?? ""}
+            size={5}
+          />
         </div>
         <div>
           <label htmlFor="alignment">alignment: </label>
@@ -204,42 +206,20 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
             <option value="bottom">bottom</option>
           </select>
         </div>
-        <div>
-          {data.data.x !== undefined ? (
-            <>
-              <label htmlFor="x">x: </label>
-              <input
-                id="x"
-                type="number"
-                onChange={(evt) => onChange(evt, ChangeTarget.x)}
-                className="nodrag"
-                value={Math.round(data.data.x)}
-                size={5}
-              />
-              <br />
-            </>
-          ) : (
-            <></>
-          )}
-        </div>
-        <div>
-          {data.data.y !== undefined ? (
-            <>
-              <label htmlFor="y">y: </label>
-              <input
-                id="y"
-                type="number"
-                onChange={(evt) => onChange(evt, ChangeTarget.y)}
-                className="nodrag"
-                value={Math.round(data.data.y)}
-                size={5}
-              />
-              <br />
-            </>
-          ) : (
-            <></>
-          )}
-        </div>
+        {data.data.x !== undefined && (
+          <NumericInput
+            label={"x"}
+            value={data.data.x}
+            onChange={(evt) => onChange(evt, ChangeTarget.x)}
+          />
+        )}
+        {data.data.y !== undefined && (
+          <NumericInput
+            label={"y"}
+            value={data.data.y}
+            onChange={(evt) => onChange(evt, ChangeTarget.y)}
+          />
+        )}
       </div>
     </div>
   );

@@ -13,7 +13,6 @@ import {
   Tldraw,
   createShapeId,
   uniqueId,
-  useEditor,
 } from "@tldraw/tldraw";
 import {} from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
@@ -24,9 +23,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
-import ReactFlow, { useEdgesState, useNodesState } from "reactflow";
-import "reactflow/dist/style.css";
 import { Component } from "./configurationPanel/node";
 import { overrides } from "./overrides";
 import { getBBox, roundToNearestHundredth } from "./utils";
@@ -38,7 +34,6 @@ import {
   getBackgroundLayout,
   relayout,
 } from "./layoutUtils";
-import { node } from "webpack";
 import { ComponentList } from "./configurationPanel/node";
 
 export const EditorContext = createContext<any>(undefined);
@@ -53,8 +48,6 @@ export default function Editor() {
   const [selectedTreeRelations, setSelectedTreeRelations] = useState(
     Array<{ recordId: any; childrenIds: any[] }>()
   );
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const [treeNodes, setTreeNodes] = useState(Array<any>());
 
@@ -101,14 +94,6 @@ export default function Editor() {
     }),
     [editor, setEditor]
   );
-  const nodesContextValue = useMemo(
-    () => ({
-      nodes,
-      setNodes,
-    }),
-    [nodes, setNodes]
-  );
-
   const treeNodesContextValue = useMemo(
     () => ({ treeNodes, setTreeNodes }),
     [treeNodes, setTreeNodes]
@@ -152,21 +137,6 @@ export default function Editor() {
       if (name === "align-shapes") {
         setTreeNodes((nodes) => {
           console.log("[UI Event]: Nodes:", nodes);
-
-          // setEdges((edges) => {
-          //   console.log("[UI Event]: Edges:", edges);
-          //   return edges.concat(
-          //     (data as any).ids.map((id: string, i: number) => ({
-          //       id: `e${i}-${uid}`,
-          //       target: uid,
-          //       source: id,
-          //       data: {
-          //         edgeType: EdgeTypes.Align,
-          //       },
-          //     }))
-          //   );
-          // });
-
           const operation = (data as any).operation;
           const ids = (data as any).ids;
           const childrenInfo: Array<any> = [];
@@ -260,19 +230,6 @@ export default function Editor() {
             alert("[Stack] Can't stack items");
             return nodes;
           }
-
-          setEdges((edges) =>
-            edges.concat(
-              selectedIds.map((id: string, i: any) => ({
-                id: `e${i}-${uid}`,
-                target: uid,
-                source: id,
-                data: {
-                  edgeType: EdgeTypes.Stack,
-                },
-              }))
-            )
-          );
 
           const sortedIds = sortedNodes.map(({ data }) => data.id);
           const childrenInfo: any[] = [];
@@ -401,7 +358,7 @@ export default function Editor() {
         console.log(data);
       }
     },
-    [setEdges, EdgeTypes.Align, EdgeTypes.Stack, counters]
+    [EdgeTypes.Align, EdgeTypes.Stack, counters]
   );
 
   const setAppToState = useCallback((editor: EditorType) => {
@@ -409,7 +366,6 @@ export default function Editor() {
   }, []);
 
   const [storeEvents, setStoreEvents] = useState<string[]>([]);
-  const [selectedShapeBounds, setSelectedShapeBounds] = useState<any>();
   const [dragging, setDragging] = useState<boolean>(false);
   // const [editingNodes, setEditingNodes] = useState<any[]>([]);
   const [editingRelations, setEditingRelations] = useState<any[]>([]);
@@ -643,7 +599,6 @@ export default function Editor() {
                 }));
                 const groupBBox = getBBox(childBBoxes);
 
-                // TODO: in reactFlow, we use parentNode to set group as each element's parent; do that here?
                 return treeNodes.concat({
                   id: record.id,
                   recordId: record.id,
@@ -809,17 +764,6 @@ export default function Editor() {
                           ref: refId,
                           ...to.props.start.normalizedAnchor,
                         };
-                        // TODO: Instead of just concatting, check if another start node is already in there
-                        setEdges((edges) =>
-                          edges.concat({
-                            id: `e${node.id}-${refId}-start`,
-                            target: node.id,
-                            source: refId,
-                            data: {
-                              start: true,
-                            },
-                          })
-                        );
                       } else data.data.start = to.props.start;
                     }
                     if ("end" in to.props) {
@@ -829,16 +773,6 @@ export default function Editor() {
                           ref: refId,
                           ...to.props.end.normalizedAnchor,
                         };
-                        setEdges((edges) =>
-                          edges.concat({
-                            id: `e${node.id}-${refId}-end`,
-                            target: node.id,
-                            source: refId,
-                            data: {
-                              start: false,
-                            },
-                          })
-                        );
                       } else data.data.end = to.props.end;
                     }
 
@@ -897,9 +831,10 @@ export default function Editor() {
                   if (node.recordId !== from.id) return node;
 
                   const data = { ...node.data };
-                  if (to.x !== from.x) data.bbox.x = to.x;
-                  if (to.y !== from.y) data.bbox.y = to.y;
-                  if (to.props.w !== from.props.w) data.bbox.width = to.props.w;
+                  if (data.bbox.x && to.x !== from.x) data.bbox.x = to.x;
+                  if (data.bbox.y && to.y !== from.y) data.bbox.y = to.y;
+                  if (data.bbox.width && to.props.w !== from.props.w)
+                    data.bbox.width = to.props.w;
                   if (to.props.text !== from.props.text) {
                     data.data.content = to.props.text;
                     // TODO: make this better -- this is just a bandaid way to get the height of text
@@ -909,34 +844,16 @@ export default function Editor() {
 
                   return {
                     ...node,
-                    name: to.props.text ?? node.name,
+                    name:
+                      to.props.text !== undefined
+                        ? to.props.text.length > 10
+                          ? to.props.text.slice(0, 10) + "..."
+                          : to.props.text.slice(0, 10)
+                        : node.name,
                     data: data,
                   };
                 });
               });
-              // setNodes((nodes) => {
-              //   const updatedNodes = nodes.map((node) => {
-              //     if (node.id === from.id) {
-              //       const data = { ...node.data };
-              //       if (to.x !== from.x) data.bbox.x = to.x;
-              //       if (to.y !== from.y) data.bbox.y = to.y;
-              //       if (to.props.w !== from.props.w)
-              //         data.bbox.width = to.props.w;
-              //       if (to.props.text !== from.props.text) {
-              //         data.data.content = to.props.text;
-              //         // TODO: make this better -- this is just a bandaid way to get the height of text
-              //         data.bbox.height =
-              //           20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
-              //       }
-              //       return {
-              //         ...node,
-              //         data: data,
-              //       };
-              //     }
-              //     return node;
-              //   });
-              //   return updatedNodes;
-              // });
             }
           } else if (
             from.typeName === "instance_page_state" &&
@@ -1010,25 +927,6 @@ export default function Editor() {
           if (record.typeName === "shape") {
             logChangeEvent(`deleted shape (${record.type})`);
             if (record.type === "group") {
-              // filter out parent id if node is a group
-              // setNodes((nodes) => {
-              //   const parentPosition = nodes.find(
-              //     (n) => n.id === record.id
-              //   )!.position;
-              //   return nodes.map((node) => {
-              //     if (node.parentNode === record.id) {
-              //       return {
-              //         ...node,
-              //         position: {
-              //           x: node.position.x + parentPosition.x,
-              //           y: node.position.y + parentPosition.y,
-              //         },
-              //         parentNode: undefined,
-              //       };
-              //     }
-              //     return node;
-              //   });
-              // });
             }
             setTreeNodes((nodes) =>
               nodes
@@ -1039,12 +937,6 @@ export default function Editor() {
                   ),
                 }))
                 .filter((node: any) => node.recordId !== record.id)
-            );
-            // setNodes((nodes) => nodes.filter((node) => node.id !== record.id));
-            setEdges((edges) =>
-              edges.filter(
-                (edge) => edge.target !== record.id && edge.source !== record.id
-              )
             );
           }
         }
@@ -1060,44 +952,34 @@ export default function Editor() {
       document.removeEventListener("mouseup", handleMouseUp);
       document.addEventListener("mousedown", handleMouseDown);
     };
-  }, [
-    editor,
-    selectedTreeRelations,
-    selectedTreeRelations.length,
-    setEdges,
-    setNodes,
-  ]);
+  }, [editor, selectedTreeRelations, selectedTreeRelations.length]);
 
   return (
     <EditorContext.Provider value={editorContextValue}>
-      <NodesContext.Provider value={nodesContextValue}>
-        <TreeNodesContext.Provider value={treeNodesContextValue}>
-          <EdgesContext.Provider value={{ edges, setEdges }}>
-            <SelectionContext.Provider value={selectedTreeContextValue}>
-              <div style={{ display: "flex" }}>
-                <div className="treeview-container">
-                  <button className="clear-button" onClick={clearAll}>
-                    Clear All Objects
-                  </button>
-                  <TreeView data={treeNodes} />
-                </div>
-                <div className="tldraw-container" onKeyDown={handleKeyDown}>
-                  <Tldraw
-                    autoFocus
-                    onUiEvent={handleUiEvent}
-                    onMount={setAppToState}
-                    overrides={overrides}
-                  />
-                  {/* {selectedShapeBounds && <DraggingBounds bounds={selectedShapeBounds} rotation={0}/>} */}
-                </div>
-                <div className="panel-container">
-                  <Panel />
-                </div>
-              </div>
-            </SelectionContext.Provider>
-          </EdgesContext.Provider>
-        </TreeNodesContext.Provider>
-      </NodesContext.Provider>
+      <TreeNodesContext.Provider value={treeNodesContextValue}>
+        <SelectionContext.Provider value={selectedTreeContextValue}>
+          <div style={{ display: "flex" }}>
+            <div className="treeview-container">
+              <button className="clear-button" onClick={clearAll}>
+                Clear All Objects
+              </button>
+              <TreeView data={treeNodes} />
+            </div>
+            <div className="tldraw-container" onKeyDown={handleKeyDown}>
+              <Tldraw
+                autoFocus
+                onUiEvent={handleUiEvent}
+                onMount={setAppToState}
+                overrides={overrides}
+              />
+              {/* {selectedShapeBounds && <DraggingBounds bounds={selectedShapeBounds} rotation={0}/>} */}
+            </div>
+            <div className="panel-container">
+              <Panel />
+            </div>
+          </div>
+        </SelectionContext.Provider>
+      </TreeNodesContext.Provider>
     </EditorContext.Provider>
   );
 }

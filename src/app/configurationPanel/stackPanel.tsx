@@ -5,6 +5,7 @@ import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import { getStackLayout, relayout } from "../layoutUtils";
 import _ from "lodash";
+import { NumericInput } from "./inputModes";
 
 export type StackPanelData = {
   direction: "horizontal" | "vertical";
@@ -183,21 +184,11 @@ export function StackPanel({ data, name }: StackPanelProps) {
           <label htmlFor="vertical">vertical</label>
           <br />
         </div>
-        <div>
-          <label htmlFor="spacing">Spacing: </label>
-          {data.data.spacing !== undefined ? (
-            <input
-              id="spacing"
-              type="number"
-              onChange={(evt) => onChange(evt, StackChangeTarget.spacing)}
-              // className="nodrag"
-              value={Math.round(data.data.spacing)}
-              size={4}
-            />
-          ) : (
-            <></>
-          )}
-        </div>
+        <NumericInput
+          label={"spacing"}
+          value={data.data.spacing}
+          onChange={(evt) => onChange(evt, StackChangeTarget.spacing)}
+        />
 
         {/* {data.y !== undefined ? (
           <input
