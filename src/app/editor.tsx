@@ -33,6 +33,7 @@ import {
   getStackLayout,
   getBackgroundLayout,
   relayout,
+  getDistributeLayout,
 } from "./layoutUtils";
 import { ComponentList } from "./configurationPanel/node";
 
@@ -51,11 +52,9 @@ export default function Editor() {
 
   const [treeNodes, setTreeNodes] = useState(Array<any>());
 
-  let initialCounters: any = {};
-  for (const component of ComponentList) {
-    initialCounters[component] = 1;
-  }
-  const [counters, setCounters] = useState<any>(initialCounters);
+  const [counters, setCounters] = useState<any>(
+    ComponentList.reduce((prev, component) => ({ ...prev, [component]: 1 }), {})
+  );
 
   // get name for node and increment counter
   const getNodeNameAndIncrement = (nodeType: Component) => {
@@ -68,10 +67,10 @@ export default function Editor() {
   };
 
   const resetCounters = () => {
-    let initialCounters: any = {};
-    for (const component of ComponentList) {
-      initialCounters[component] = 1;
-    }
+    const initialCounters = ComponentList.reduce(
+      (prev, component) => ({ ...prev, [component]: 1 }),
+      {}
+    );
     setCounters(initialCounters);
   };
 
@@ -113,12 +112,6 @@ export default function Editor() {
     ]
   );
 
-  // Types of edges in graph
-  enum EdgeTypes {
-    Align,
-    Stack,
-  }
-
   const handleKeyDown = (event) => {
     if (event.key === ".") {
       // TODO: Implement selection change
@@ -136,22 +129,22 @@ export default function Editor() {
 
       if (name === "align-shapes") {
         setTreeNodes((nodes) => {
-          console.log("[UI Event]: Nodes:", nodes);
           const operation = (data as any).operation;
           const ids = (data as any).ids;
           const childrenInfo: Array<any> = [];
           const selectedNodeData = nodes
             .filter((node) => ids.includes(node.recordId))
             .map((node) => node.data);
+
           const {
-            alignable,
+            canPerformOperation,
             alignX,
             alignY,
             updatedPositions,
             updatedNodeData,
           } = getAlignLayout(selectedNodeData, operation, uid);
 
-          if (alignable === false) {
+          if (canPerformOperation === false) {
             console.log(
               "[Align] Unable to align as contradictory positions determined"
             );
@@ -186,7 +179,6 @@ export default function Editor() {
             id: uid,
             name: getNodeNameAndIncrement(Component.Align),
             type: Component.Align,
-            nodeType: "alignNode",
             position: { x: 300, y: 150 },
             children: childrenInfo,
             recordId: uid,
@@ -218,14 +210,14 @@ export default function Editor() {
             .map((data) => data.id);
           const result = getStackLayout(selectedNodes, operation, uid);
           const {
-            stackable,
+            canPerformOperation,
             sortedNodes,
             spacing,
             stackAlignment,
             updatedPositions,
           } = result;
 
-          if (!stackable) {
+          if (!canPerformOperation) {
             console.log("[Stack] Can't stack items");
             alert("[Stack] Can't stack items");
             return nodes;
@@ -271,7 +263,6 @@ export default function Editor() {
             id: uid,
             name: getNodeNameAndIncrement(Component.Stack),
             type: Component.Stack,
-            nodeType: "stackNode",
             position: {
               x: sortedNodes[0].data.owned.x + 5,
               y: sortedNodes[0].data.owned.y + 5,
@@ -283,6 +274,94 @@ export default function Editor() {
               data: {
                 direction: (data as any).operation,
                 alignment: stackAlignment,
+                spacing: spacing,
+              },
+              bbox: {
+                ...childrenBBoxes,
+              },
+              childrenIds: sortedIds,
+              fixedIds: fixedIds,
+            },
+          });
+        });
+      } else if (name === "distribute-shapes") {
+        let selectedIds = (data as any).ids;
+        const operation = (data as any).operation;
+
+        setTreeNodes((nodes) => {
+          let selectedNodes = nodes
+            .filter((node) => selectedIds.includes(node.recordId))
+            .map((node) => node.data); // selected nodes
+
+          let fixedIds = selectedNodes
+            .filter(
+              (data) => data.owned.x !== undefined || data.owned.y !== undefined
+            )
+            .map((data) => data.id);
+          const result = getDistributeLayout(selectedNodes, operation, uid);
+          const {
+            canPerformOperation,
+            sortedNodes,
+            spacing,
+            updatedPositions,
+          } = result;
+
+          if (!canPerformOperation) {
+            console.log("[Distribute] Can't distribute items");
+            alert("[Distribute] Can't distribute items");
+            return nodes;
+          }
+
+          const sortedIds = sortedNodes.map(({ data }) => data.id);
+          const childrenInfo: any[] = [];
+
+          const removedPositions = nodes.map((node) => {
+            if (!selectedIds.includes(node.recordId as TLShapeId)) {
+              return node;
+            }
+
+            childrenInfo.push({
+              id: uniqueId(),
+              recordId: node.id,
+              name: node.name,
+              type: node.type,
+              instanceSelected: false,
+            });
+
+            const stackPosition = sortedIds.findIndex(
+              (id) => id === node.recordId
+            );
+
+            return {
+              ...node,
+              data: { ...sortedNodes[stackPosition].data },
+            };
+          });
+
+          setEditor((editor) => editor?.updateShapes(updatedPositions));
+          const childrenBBoxes = getBBox(
+            sortedNodes.map(({ data }) => ({
+              x: data.owned.x,
+              y: data.owned.y,
+              width: data.bbox.width,
+              height: data.bbox.height,
+            }))
+          );
+
+          return removedPositions.concat({
+            id: uid,
+            name: getNodeNameAndIncrement(Component.Distribute),
+            type: Component.Distribute,
+            position: {
+              x: sortedNodes[0].data.owned.x + 5,
+              y: sortedNodes[0].data.owned.y + 5,
+            },
+            children: childrenInfo,
+            recordId: uid,
+            data: {
+              id: uid,
+              data: {
+                direction: (data as any).operation,
                 spacing: spacing,
               },
               bbox: {
@@ -331,7 +410,6 @@ export default function Editor() {
               recordId: id,
               name: getNodeNameAndIncrement(Component.Background),
               type: Component.Background,
-              nodeType: "backgroundNode",
               position: { x: backgroundPosition.x, y: backgroundPosition.y },
               children: selectedNodes.map((node) => ({
                 id: uniqueId(),
@@ -358,7 +436,7 @@ export default function Editor() {
         console.log(data);
       }
     },
-    [EdgeTypes.Align, EdgeTypes.Stack, counters]
+    [counters]
   );
 
   const setAppToState = useCallback((editor: EditorType) => {
@@ -577,7 +655,6 @@ export default function Editor() {
                   recordId: record.id,
                   name: getNodeNameAndIncrement(type),
                   type: type,
-                  nodeType: "geoNode",
                   position: { x: record.x, y: record.y },
                   data: data,
                 });
@@ -604,7 +681,6 @@ export default function Editor() {
                   recordId: record.id,
                   name: Component.Group,
                   type: Component.Group,
-                  nodeType: "groupNode",
                   position: { x: groupBBox, y: groupBBox },
                   children: selectedNodes.map((node) => ({
                     id: uniqueId(),
@@ -625,7 +701,6 @@ export default function Editor() {
                   recordId: record.id,
                   name: getNodeNameAndIncrement(Component.Arrow),
                   type: Component.Arrow,
-                  nodeType: "arrowNode",
                   position: { x: record.x, y: record.y },
                   data: {
                     ...data,
@@ -643,15 +718,13 @@ export default function Editor() {
                   recordId: record.id,
                   name: Component.Text,
                   type: Component.Text,
-                  nodeType: "textNode",
                   position: { x: record.x, y: record.y },
                   data: {
                     ...data,
-                    name: Component.Text,
                     bbox: {
                       ...data.bbox,
                       width: record.props.w,
-                      height: 16, // height isn't given for text, find out a way to measure
+                      height: 34, // height isn't given for text, find out a way to measure
                     },
                     data: {
                       content: record.props.text,
@@ -776,8 +849,28 @@ export default function Editor() {
                       } else data.data.end = to.props.end;
                     }
 
+                    const children = [];
+                    if ("boundShapeId" in to.props.start) {
+                      children.push(
+                        _.find(
+                          nodes,
+                          (node) => node.recordId === data.data.start.ref
+                        )
+                      );
+                    }
+                    if ("boundShapeId" in to.props.end) {
+                      children.push(
+                        _.find(
+                          nodes,
+                          (node) => node.recordId === data.data.end.ref
+                        )
+                      );
+                    }
+
+                    data.childrenIds = children.map((child) => child.id);
                     return {
                       ...node,
+                      children: children,
                       data: data,
                     };
                   }
@@ -839,7 +932,7 @@ export default function Editor() {
                     data.data.content = to.props.text;
                     // TODO: make this better -- this is just a bandaid way to get the height of text
                     data.bbox.height =
-                      20 * (1 + (to.props.text.match(/\n/g) ?? []).length);
+                      34 * (1 + (to.props.text.match(/\n/g) ?? []).length);
                   }
 
                   return {

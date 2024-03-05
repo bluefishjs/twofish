@@ -5,7 +5,6 @@ import {
   TreeNodesContext,
 } from "../editor";
 import { useContext } from "react";
-import { RectNode } from "../nodes/rectNode";
 import { GeoPanel } from "./geoPanel";
 import { StackPanel } from "./stackPanel";
 import { TextPanel } from "./textPanel";
@@ -15,6 +14,8 @@ import { Component } from "./node";
 import { BackgroundPanel } from "./backgroundPanel";
 import { ArrowPanel } from "./arrowPanel";
 import { LinePanel } from "./linePanel";
+import { ActionPanel } from "./actionPanel";
+import { DistributePanel } from "./distributePanel";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
@@ -34,6 +35,9 @@ export function Panel() {
           break;
         case Component.Align:
           configInfo = <AlignPanel {...selectedRecord} />;
+          break;
+        case Component.Distribute:
+          configInfo = <DistributePanel {...selectedRecord} />;
           break;
         case Component.Rect:
           configInfo = <GeoPanel {...selectedRecord} />;
@@ -61,8 +65,9 @@ export function Panel() {
   }
   return selectedTreeNodes.length > 0 && selectedRecordId !== undefined ? (
     selectedTreeNodes.length > 1 ? (
-      <div>More than 1 object selected</div>
+      <ActionPanel selectedTreeNodes={selectedTreeNodes} />
     ) : (
+      // <div>More than 1 object selected</div>
       <div>
         <div>{selectedRecordId} selected</div>
         {configInfo}

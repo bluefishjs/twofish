@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState } from "react";
 import "./panel.css";
-import { Alignment } from "../nodes/alignNode";
+import { Alignment } from "./alignPanel";
 import { EditorContext, TreeNodesContext } from "../editor";
 import { Node } from "./node";
 import { getStackLayout, relayout } from "../layoutUtils";
@@ -63,6 +63,7 @@ export function StackPanel({ data, name }: StackPanelProps) {
         target === StackChangeTarget.spacing
           ? (+evt.target.value as number)
           : data.data.spacing;
+
       const updatedAlignment =
         target === StackChangeTarget.alignment ? evt.target.value : alignment;
 
@@ -77,7 +78,7 @@ export function StackPanel({ data, name }: StackPanelProps) {
         return;
       }
 
-      const { stackable, updatedPositions, sortedNodes, stackAlignment } =
+      const { canPerformOperation, updatedPositions, sortedNodes, stackAlignment } =
         getStackLayout(
           orderedNodes,
           updatedDirection,
@@ -87,7 +88,7 @@ export function StackPanel({ data, name }: StackPanelProps) {
           target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
         );
 
-      if (!stackable) {
+      if (!canPerformOperation) {
         console.log("[stack] can't change stack");
         alert("[Stack] Was not able to change stack positioning");
         return;
@@ -137,9 +138,7 @@ export function StackPanel({ data, name }: StackPanelProps) {
       if (target === StackChangeTarget.direction) {
         // set default spacing
         setDirection(updatedDirection);
-      } else if (target === StackChangeTarget.spacing) {
-        data.data.spacing = +evt.target.value as number;
-      } else {
+      } else if (target === StackChangeTarget.alignment) {
         setAlignment(stackAlignment ?? updatedAlignment);
       }
     },

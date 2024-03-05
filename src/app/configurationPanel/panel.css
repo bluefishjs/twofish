@@ -23,3 +23,21 @@
 input {
     width: 5em;
 }
+
+.panel-container button {
+    padding:2px;
+    font:inherit;
+    border: 1px solid black;
+    border-radius:2px;
+}
+
+.panel-container button:hover {
+    background-color: var(--primary-blue);
+}
+
+.actions {
+    display:flex;
+    flex-direction:column;
+    gap: 1em;
+    padding-top: 1em;
+}

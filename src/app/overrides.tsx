@@ -1,14 +1,19 @@
-import { TLUiEventContextType, TLUiOverrides, menuGroup, menuItem, useEvents } from "@tldraw/tldraw";
-
+import {
+  TLUiEventContextType,
+  TLUiOverrides,
+  menuGroup,
+  menuItem,
+  useEvents,
+} from "@tldraw/tldraw";
 
 export const overrides: TLUiOverrides = {
   actions: (editor, actions, _helpers) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const trackEvent = useEvents();
 
-		function hasSelectedShapes() {
-			return editor.selectedIds.length > 0
-		}
+    function hasSelectedShapes() {
+      return editor.selectedIds.length > 0;
+    }
 
     return {
       ...actions,
@@ -86,26 +91,63 @@ export const overrides: TLUiOverrides = {
       },
       "stack-vertical": {
         ...actions["stack-vertical"],
-				onSelect(source) {
-					if (editor.selectedIds.length === 0) return
-					// if (mustGoBackToSelectToolFirst()) return
+        onSelect(source) {
+          if (editor.selectedIds.length === 0) return;
+          // if (mustGoBackToSelectToolFirst()) return
 
-					trackEvent('stack-shapes', { operation: 'vertical', source , ids: editor.selectedIds} as any)
-					editor.mark('stack-vertical')
-					// editor.stackShapes('vertical', editor.selectedIds, 16)
-				},
-			},
-			"stack-horizontal": {
+          trackEvent("stack-shapes", {
+            operation: "vertical",
+            source,
+            ids: editor.selectedIds,
+          } as any);
+          editor.mark("stack-vertical");
+          // editor.stackShapes('vertical', editor.selectedIds, 16)
+        },
+      },
+      "stack-horizontal": {
         ...actions["stack-horizontal"],
-				onSelect(source) {
-					if (!hasSelectedShapes()) return
-					// if (mustGoBackToSelectToolFirst()) return
+        onSelect(source) {
+          if (!hasSelectedShapes()) return;
+          // if (mustGoBackToSelectToolFirst()) return
 
-					trackEvent('stack-shapes', { operation: 'horizontal', source, ids: editor.selectedIds } as any)
-					editor.mark('stack-horizontal')
-					// editor.stackShapes('horizontal', editor.selectedIds, 16)
-				},
-			},
+          trackEvent("stack-shapes", {
+            operation: "horizontal",
+            source,
+            ids: editor.selectedIds,
+          } as any);
+          editor.mark("stack-horizontal");
+          // editor.stackShapes('horizontal', editor.selectedIds, 16)
+        },
+      },
+      "distribute-vertical": {
+        ...actions["distribute-vertical"],
+        onSelect(source) {
+          if (editor.selectedIds.length === 0) return;
+          // if (mustGoBackToSelectToolFirst()) return
+
+          trackEvent("distribute-shapes", {
+            operation: "vertical",
+            source,
+            ids: editor.selectedIds,
+          } as any);
+          editor.mark("distribute-vertical");
+        },
+      },
+      "distribute-horizontal": {
+        ...actions["distribute-horizontal"],
+        onSelect(source) {
+          if (!hasSelectedShapes()) return;
+          // if (mustGoBackToSelectToolFirst()) return
+
+          trackEvent("distribute-shapes", {
+            operation: "horizontal",
+            source,
+            ids: editor.selectedIds,
+          } as any);
+          editor.mark("distribute-horizontal");
+          // editor.stackShapes('horizontal', editor.selectedIds, 16)
+        },
+      },
       "add-background": {
         id: "add-background",
         action: "add-background",
@@ -122,17 +164,37 @@ export const overrides: TLUiOverrides = {
       },
     };
   },
-  contextMenu(editor, contextMenu, { actions, oneSelected, twoSelected }) {
-    if(oneSelected) {
-      const backgroundMenuItem = menuItem(actions['add-background'])
-      if(contextMenu[1].id === "modify" && contextMenu[1].children !== undefined)
-        contextMenu[1].children = [contextMenu[1].children[0], backgroundMenuItem, ...contextMenu[1].children.splice(1)];
+  contextMenu(
+    editor,
+    contextMenu,
+    { actions, oneSelected, twoSelected, threeSelected }
+  ) {
+    if (oneSelected) {
+      const backgroundMenuItem = menuItem(actions["add-background"]);
+      if (
+        contextMenu[1].id === "modify" &&
+        contextMenu[1].children !== undefined
+      )
+        contextMenu[1].children = [
+          contextMenu[1].children[0],
+          backgroundMenuItem,
+          ...contextMenu[1].children.splice(1),
+        ];
     }
-    if(twoSelected) {
-      const stackMenuGroup = contextMenu[1].children[0].children[2].children
-      stackMenuGroup.push(menuItem(actions['stack-vertical']))
-      stackMenuGroup.push(menuItem(actions['stack-horizontal']))
+    if (twoSelected && !threeSelected) {
+      contextMenu[1].children[0].children = [
+        contextMenu[1].children[0].children[0],
+        menuGroup(
+          "distributes",
+          menuItem(actions["distribute-horizontal"]),
+          menuItem(actions["distribute-vertical"])
+        ),
+        ...contextMenu[1].children[0].children.slice(1),
+      ];
+      const stackMenuGroup = contextMenu[1].children[0].children[2].children;
+      stackMenuGroup.push(menuItem(actions["stack-horizontal"]));
+      stackMenuGroup.push(menuItem(actions["stack-vertical"]));
     }
-		return contextMenu
-	},
+    return contextMenu;
+  },
 };

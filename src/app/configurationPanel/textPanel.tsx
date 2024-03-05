@@ -5,6 +5,7 @@ import { isNumeric } from "../utils";
 import { Node } from "./node";
 import { relayout } from "../layoutUtils";
 import _ from "lodash";
+import { NumericInput } from "./inputModes";
 
 export type TextPanelData = {
   content?: string;
@@ -107,36 +108,16 @@ export function TextPanel({ data, name }: TextPanelProps) {
           <label htmlFor="name">name: </label>
           <input id="name" onChange={changeName} value={name ?? ""} size={5} />
         </div>
-        <div>
-          <label htmlFor="x">x: </label>
-          {data.bbox.x !== undefined ? (
-            <input
-              id="x"
-              name="text"
-              onChange={(evt) => onChange(evt, TextChangeTarget.x)}
-              className="nodrag"
-              value={Math.round(data.bbox.x)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
-        <div>
-          <label htmlFor="y">y: </label>
-          {data.bbox.y !== undefined ? (
-            <input
-              id="y"
-              name="text"
-              onChange={(evt) => onChange(evt, TextChangeTarget.y)}
-              className="nodrag"
-              value={Math.round(data.bbox.y)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-        </div>
+        <NumericInput
+          label="x"
+          value={data.bbox.x}
+          onChange={(evt) => onChange(evt, TextChangeTarget.x)}
+        />
+        <NumericInput
+          label="y"
+          value={data.bbox.y}
+          onChange={(evt) => onChange(evt, TextChangeTarget.y)}
+        />
         <div>
           <label htmlFor="c">content: </label>
           {data.data.content !== undefined ? (

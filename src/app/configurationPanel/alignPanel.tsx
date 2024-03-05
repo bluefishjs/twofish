@@ -111,7 +111,7 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
         .filter((node: any) => data.childrenIds?.includes(node.recordId))
         .map((node: any) => node.data);
 
-      const { alignable, updatedPositions, updatedNodeData, alignX, alignY } =
+      const { canPerformOperation, updatedPositions, updatedNodeData, alignX, alignY } =
         getAlignLayout(
           childrenData,
           alignmentData.alignment,
@@ -119,7 +119,7 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
           alignmentData.alignX,
           alignmentData.alignY
         );
-      if (!alignable) {
+      if (!canPerformOperation) {
         alert("Was not able to change alignment");
         return;
       }
