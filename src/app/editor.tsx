@@ -23,7 +23,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Component } from "./configurationPanel/node";
+import { Component, Node, TreeNode, ComponentList } from "./configurationPanel/node";
 import { overrides } from "./overrides";
 import { getBBox, roundToNearestHundredth } from "./utils";
 import { TreeView } from "./treeView/tree";
@@ -35,12 +35,9 @@ import {
   relayout,
   getDistributeLayout,
 } from "./layoutUtils";
-import { ComponentList } from "./configurationPanel/node";
 
 export const EditorContext = createContext<any>(undefined);
-export const NodesContext = createContext<any>(undefined);
 export const TreeNodesContext = createContext<any>(undefined);
-export const EdgesContext = createContext<any>(undefined);
 export const SelectionContext = createContext<any>(undefined);
 
 export default function Editor() {
@@ -50,7 +47,7 @@ export default function Editor() {
     Array<{ recordId: any; childrenIds: any[] }>()
   );
 
-  const [treeNodes, setTreeNodes] = useState(Array<any>());
+  const [treeNodes, setTreeNodes] = useState(Array<TreeNode<any>>());
 
   const [counters, setCounters] = useState<any>(
     ComponentList.reduce((prev, component) => ({ ...prev, [component]: 1 }), {})
@@ -179,7 +176,6 @@ export default function Editor() {
             id: uid,
             name: getNodeNameAndIncrement(Component.Align),
             type: Component.Align,
-            position: { x: 300, y: 150 },
             children: childrenInfo,
             recordId: uid,
             data: {
@@ -263,10 +259,6 @@ export default function Editor() {
             id: uid,
             name: getNodeNameAndIncrement(Component.Stack),
             type: Component.Stack,
-            position: {
-              x: sortedNodes[0].data.owned.x + 5,
-              y: sortedNodes[0].data.owned.y + 5,
-            },
             children: childrenInfo,
             recordId: uid,
             data: {
@@ -352,10 +344,6 @@ export default function Editor() {
             id: uid,
             name: getNodeNameAndIncrement(Component.Distribute),
             type: Component.Distribute,
-            position: {
-              x: sortedNodes[0].data.owned.x + 5,
-              y: sortedNodes[0].data.owned.y + 5,
-            },
             children: childrenInfo,
             recordId: uid,
             data: {
@@ -410,7 +398,6 @@ export default function Editor() {
               recordId: id,
               name: getNodeNameAndIncrement(Component.Background),
               type: Component.Background,
-              position: { x: backgroundPosition.x, y: backgroundPosition.y },
               children: selectedNodes.map((node) => ({
                 id: uniqueId(),
                 recordId: node.recordId,
@@ -445,15 +432,18 @@ export default function Editor() {
 
   const [storeEvents, setStoreEvents] = useState<string[]>([]);
   const [dragging, setDragging] = useState<boolean>(false);
-  // const [editingNodes, setEditingNodes] = useState<any[]>([]);
-  const [editingRelations, setEditingRelations] = useState<any[]>([]);
 
   useEffect(() => {
     if (!editor) return;
 
+    let dragging = false;
+
     function logChangeEvent(eventName: string) {
       setStoreEvents((events) => [eventName, ...events]);
     }
+
+    let editingNodes: any[] = [];
+    let editingRelations: any[] = [];
 
     const handleMouseDown = () => {
       // Only deal with breaking relations for singular nodes for now
@@ -461,26 +451,68 @@ export default function Editor() {
         return;
       }
       // show highlight area
-
-      setDragging(true);
-    };
-
-    let editingNodes: any[] = [];
-
-    const handleMouseUp = () => {
-      // TODOS TO FINISH BREAKING RELATION IMPLEMENTATION:
-      //    - ONLY REMOVE OBJECTS FROM THE ACTUAL RELATIONS THAT SHOULD BE BROKEN (I.E. IF X IS BROKEN AND Y OWNER IS THE SAME, SHOULD LEAVE THAT RELATION OVERALL)
-      //    - REMOVE RELATIONS THAT ARE NO LONGER RELEVANT (I.E. AN ALIGN/STACK THAT ONLY HAS 1 OBJECT)
-      if (selectedTreeNodes.length > 1 || selectedTreeNodes.length === 0) {
-        return;
-      }
-      const editingRelations = treeNodes
+      editingRelations = treeNodes
         .filter(
           (node) =>
             node.data.childrenIds &&
             node.data.childrenIds.includes(selectedTreeNodes[0])
         )
         .map((node) => node.recordId);
+
+      // setDragging(true);
+      dragging = true;
+      document.addEventListener("mousemove", handleMouseMove);
+    };
+
+    const handleMouseMove = (evt: any) => {
+      // if (editingNodes.length === 1 && editingRelations.length > 0) {
+      //   let selectedNodeId = selectedTreeNodes[0];
+      //   let currentNodeIndex = _.findIndex(
+      //     treeNodes,
+      //     (node) => node.recordId === selectedNodeId
+      //   );
+      //   let currentNode = treeNodes[currentNodeIndex];
+      //   let updatedBBox = editingNodes[0];
+      //   let revertXPosition = false;
+      //   let revertYPosition = false;
+      //   if (
+      //     currentNode.data.owned.x &&
+      //     Math.abs(updatedBBox.x - currentNode.data.owned.x) < 15
+      //   ) {
+      //     // threshold value of 50 for now
+      //     revertXPosition = true;
+      //   }
+      //   if (
+      //     currentNode.data.owned.y &&
+      //     Math.abs(updatedBBox.y - currentNode.data.owned.y) < 15
+      //   ) {
+      //     // threshold value of 100 for now
+      //     revertYPosition = true;
+      //   }
+      //   if (revertXPosition || revertYPosition) {
+      //     setEditor(
+      //       editor
+      //         .updateShapes([
+      //           {
+      //             id: selectedNodeId,
+      //             type: "geo",
+      //             x: currentNode.data.bbox.x ?? currentNode.data.owned.x,
+      //             y: currentNode.data.bbox.y ?? currentNode.data.owned.y,
+      //           },
+      //         ])
+      //         .complete()
+      //     );
+      //   }
+      // }
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      // TODOS TO FINISH BREAKING RELATION IMPLEMENTATION:
+      //    - ONLY REMOVE OBJECTS FROM THE ACTUAL RELATIONS THAT SHOULD BE BROKEN (I.E. IF X IS BROKEN AND Y OWNER IS THE SAME, SHOULD LEAVE THAT RELATION OVERALL)
+      //    - REMOVE RELATIONS THAT ARE NO LONGER RELEVANT (I.E. AN ALIGN/STACK THAT ONLY HAS 1 OBJECT)
+      if (selectedTreeNodes.length > 1 || selectedTreeNodes.length === 0) {
+        return;
+      }
       if (
         editingRelations.length === 0 ||
         editingNodes.length === 0 ||
@@ -502,14 +534,14 @@ export default function Editor() {
 
       if (
         currentNode.data.owned.x &&
-        Math.abs(updatedBBox.x - currentNode.data.owned.x) < 50
+        Math.abs(updatedBBox.x - currentNode.data.owned.x) < 30
       ) {
-        // threshold value of 100 for now
+        // threshold value of 50 for now
         revertXPosition = true;
       }
       if (
         currentNode.data.owned.y &&
-        Math.abs(updatedBBox.y - currentNode.data.owned.y) < 50
+        Math.abs(updatedBBox.y - currentNode.data.owned.y) < 30
       ) {
         // threshold value of 100 for now
         revertYPosition = true;
@@ -540,8 +572,8 @@ export default function Editor() {
               {
                 id: selectedNodeId,
                 type: "geo",
-                x: currentNode.data.owned.x,
-                y: currentNode.data.owned.y,
+                x: currentNode.data.bbox.x ?? currentNode.data.owned.x,
+                y: currentNode.data.bbox.y ?? currentNode.data.owned.y,
               },
             ])
             .updateShapes(positionsToUpdate)
@@ -570,7 +602,7 @@ export default function Editor() {
               };
             }
             if (editingRelations.includes(node.recordId)) {
-              if (node.data.childrenIds.length <= 1) {
+              if (node.data.childrenIds && node.data.childrenIds.length <= 1) {
                 relationsToRemove.push(node.recordId); // remove if nothing in the relation anymore
               }
               return {
@@ -580,7 +612,7 @@ export default function Editor() {
                 ),
                 data: {
                   ...node.data,
-                  childrenIds: node.data.childrenIds.filter(
+                  childrenIds: (node.data.childrenIds ?? []).filter(
                     (childId) => childId !== selectedNodeId
                   ),
                 },
@@ -600,7 +632,7 @@ export default function Editor() {
       }
       // setEditingNodes([]);
       editingNodes = [];
-      setEditingRelations([]);
+      editingRelations = [];
       setDragging(false);
     };
 
@@ -613,7 +645,7 @@ export default function Editor() {
             logChangeEvent(
               `created shape (${record.type}) ${JSON.stringify(record)}`
             );
-            let data: TreeNode<any> = {
+            let data: Node<any> = {
               id: record.id,
               bbox: {
                 x: record.x,
@@ -655,7 +687,7 @@ export default function Editor() {
                   recordId: record.id,
                   name: getNodeNameAndIncrement(type),
                   type: type,
-                  position: { x: record.x, y: record.y },
+                  children: [],
                   data: data,
                 });
               });
@@ -681,7 +713,6 @@ export default function Editor() {
                   recordId: record.id,
                   name: Component.Group,
                   type: Component.Group,
-                  position: { x: groupBBox, y: groupBBox },
                   children: selectedNodes.map((node) => ({
                     id: uniqueId(),
                     recordId: node.recordId,
@@ -689,8 +720,11 @@ export default function Editor() {
                     type: node.type,
                   })),
                   data: {
+                    id: record.id,
                     childrenIds: childrenIds,
                     bbox: groupBBox,
+                    owned: {},
+                    data: {}
                   },
                 });
               });
@@ -701,7 +735,7 @@ export default function Editor() {
                   recordId: record.id,
                   name: getNodeNameAndIncrement(Component.Arrow),
                   type: Component.Arrow,
-                  position: { x: record.x, y: record.y },
+                  children: [],
                   data: {
                     ...data,
                     data: {
@@ -718,16 +752,17 @@ export default function Editor() {
                   recordId: record.id,
                   name: Component.Text,
                   type: Component.Text,
-                  position: { x: record.x, y: record.y },
+                  children: [],
                   data: {
                     ...data,
                     bbox: {
                       ...data.bbox,
                       width: record.props.w,
-                      height: 34, // height isn't given for text, find out a way to measure
+                      height: editor.getBoundsById(record.id)?.h ?? 34,
                     },
                     data: {
                       content: record.props.text,
+                      customName: false,
                     },
                   },
                 })
@@ -739,6 +774,7 @@ export default function Editor() {
                   recordId: record.id,
                   name: Component.Line,
                   type: Component.Line,
+                  children: [],
                   data: {
                     ...data,
                     bbox: {
@@ -756,8 +792,10 @@ export default function Editor() {
                 nodes.concat({
                   id: record.id,
                   recordId: record.id,
+                  children: [],
                   name: Component.Other,
                   type: Component.Other,
+                  data: data
                 })
               );
             }
@@ -923,26 +961,26 @@ export default function Editor() {
                 return nodes.map((node) => {
                   if (node.recordId !== from.id) return node;
 
+                  const bounds = editor.getBoundsById(from.id);
+                  if (!bounds) return;
+
                   const data = { ...node.data };
-                  if (data.bbox.x && to.x !== from.x) data.bbox.x = to.x;
-                  if (data.bbox.y && to.y !== from.y) data.bbox.y = to.y;
-                  if (data.bbox.width && to.props.w !== from.props.w)
-                    data.bbox.width = to.props.w;
-                  if (to.props.text !== from.props.text) {
-                    data.data.content = to.props.text;
-                    // TODO: make this better -- this is just a bandaid way to get the height of text
-                    data.bbox.height =
-                      34 * (1 + (to.props.text.match(/\n/g) ?? []).length);
+                  if (data.bbox.x) data.bbox.x = to.x;
+                  if (data.bbox.y) data.bbox.y = to.y;
+                  if (data.bbox.width) data.bbox.width = to.props.w;
+                  if (data.bbox.height) data.bbox.height = bounds?.h;
+                  const newContent = to.props.text;
+                  if (newContent !== from.props.text) {
+                    data.data.content = newContent;
                   }
 
                   return {
                     ...node,
-                    name:
-                      to.props.text !== undefined
-                        ? to.props.text.length > 10
-                          ? to.props.text.slice(0, 10) + "..."
-                          : to.props.text.slice(0, 10)
-                        : node.name,
+                    name: data.data.customName
+                      ? node.name
+                      : newContent.length > 10
+                      ? newContent.slice(0, 10) + "..."
+                      : newContent.slice(0, 10),
                     data: data,
                   };
                 });
@@ -1043,7 +1081,8 @@ export default function Editor() {
     return () => {
       editor.off("change", handleChangeEvent);
       document.removeEventListener("mouseup", handleMouseUp);
-      document.addEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("mousemove", handleMouseMove);
     };
   }, [editor, selectedTreeRelations, selectedTreeRelations.length]);
 

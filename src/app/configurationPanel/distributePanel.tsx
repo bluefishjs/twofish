@@ -21,23 +21,6 @@ enum DistributeChangeTarget {
   spacing,
 }
 
-export type StackPanelData = {
-  direction: "horizontal" | "vertical";
-  alignment: Alignment;
-  spacing: number;
-};
-
-export type StackPanelProps = {
-  data: Node<StackPanelData>;
-  name: string;
-};
-
-enum StackChangeTarget {
-  direction,
-  alignment,
-  spacing,
-}
-
 export function DistributePanel({ data, name }: DistributePanelProps) {
   const [direction, setDirection] = useState(data.data.direction);
   const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
@@ -68,12 +51,14 @@ export function DistributePanel({ data, name }: DistributePanelProps) {
     );
   };
   const onChange = useCallback(
-    (evt: any, target: StackChangeTarget) => {
+    (evt: any, target: DistributeChangeTarget) => {
       const updatedDirection =
-        target === StackChangeTarget.direction ? evt.target.value : direction;
+        target === DistributeChangeTarget.direction
+          ? evt.target.value
+          : direction;
 
       const updatedSpacing: number =
-        target === StackChangeTarget.spacing
+        target === DistributeChangeTarget.spacing
           ? (+evt.target.value as number)
           : data.data.spacing;
 
@@ -170,7 +155,7 @@ export function DistributePanel({ data, name }: DistributePanelProps) {
             type="radio"
             name="direction"
             value="horizontal"
-            onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
+            onChange={(evt) => onChange(evt, DistributeChangeTarget.direction)}
             checked={direction === "horizontal"}
           />
           <label htmlFor="horizontal">horizontal</label>
@@ -179,7 +164,7 @@ export function DistributePanel({ data, name }: DistributePanelProps) {
             type="radio"
             name="direction"
             value="vertical"
-            onChange={(evt) => onChange(evt, StackChangeTarget.direction)}
+            onChange={(evt) => onChange(evt, DistributeChangeTarget.direction)}
             checked={direction === "vertical"}
           />
           <label htmlFor="vertical">vertical</label>
@@ -188,7 +173,7 @@ export function DistributePanel({ data, name }: DistributePanelProps) {
         <NumericInput
           label={"spacing"}
           value={data.data.spacing}
-          onChange={(evt) => onChange(evt, StackChangeTarget.spacing)}
+          onChange={(evt) => onChange(evt, DistributeChangeTarget.spacing)}
         />
 
         {/* {data.y !== undefined ? (

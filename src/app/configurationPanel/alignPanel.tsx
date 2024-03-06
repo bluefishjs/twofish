@@ -5,6 +5,7 @@ import { Node } from "./node";
 import _ from "lodash";
 import { getAlignLayout, horizontalAlignments, relayout } from "../layoutUtils";
 import { NumericInput } from "./inputModes";
+import { changeNodeName } from "./panelUtils";
 
 export type HorizontalAlignment = "left" | "center-horizontal" | "right";
 export type VerticalAlignment = "top" | "center-vertical" | "bottom";
@@ -35,26 +36,7 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
 
   const changeName = (evt: any) => {
     setNodeName(evt.target.value);
-    setTreeNodes(
-      treeNodes.map((treeNode: any) => {
-        if (treeNode.recordId !== data.id) {
-          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
-            return {
-              ...treeNode,
-              children: treeNode.children.map((child) =>
-                child.recordId === data.id
-                  ? { ...child, name: evt.target.value }
-                  : child
-              ),
-            };
-          return treeNode;
-        }
-        return {
-          ...treeNode,
-          name: evt.target.value,
-        };
-      })
-    );
+    setTreeNodes(changeNodeName(treeNodes, data.id, evt.target.value));
   };
 
   const onChange = useCallback(
@@ -111,14 +93,19 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
         .filter((node: any) => data.childrenIds?.includes(node.recordId))
         .map((node: any) => node.data);
 
-      const { canPerformOperation, updatedPositions, updatedNodeData, alignX, alignY } =
-        getAlignLayout(
-          childrenData,
-          alignmentData.alignment,
-          data.id,
-          alignmentData.alignX,
-          alignmentData.alignY
-        );
+      const {
+        canPerformOperation,
+        updatedPositions,
+        updatedNodeData,
+        alignX,
+        alignY,
+      } = getAlignLayout(
+        childrenData,
+        alignmentData.alignment,
+        data.id,
+        alignmentData.alignX,
+        alignmentData.alignY
+      );
       if (!canPerformOperation) {
         alert("Was not able to change alignment");
         return;

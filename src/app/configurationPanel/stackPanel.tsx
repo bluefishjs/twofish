@@ -6,6 +6,7 @@ import { Node } from "./node";
 import { getStackLayout, relayout } from "../layoutUtils";
 import _ from "lodash";
 import { NumericInput } from "./inputModes";
+import { changeNodeName } from "./panelUtils";
 
 export type StackPanelData = {
   direction: "horizontal" | "vertical";
@@ -34,24 +35,7 @@ export function StackPanel({ data, name }: StackPanelProps) {
   const changeName = (evt: any) => {
     setNodeName(evt.target.value);
     setTreeNodes(
-      treeNodes.map((treeNode: any) => {
-        if (treeNode.recordId !== data.id) {
-          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
-            return {
-              ...treeNode,
-              children: treeNode.children.map((child) =>
-                child.recordId === data.id
-                  ? { ...child, name: evt.target.value }
-                  : child
-              ),
-            };
-          return treeNode;
-        }
-        return {
-          ...treeNode,
-          name: evt.target.value,
-        };
-      })
+      changeNodeName(treeNodes, data.id, evt.target.value)
     );
   };
   const onChange = useCallback(
@@ -78,15 +62,19 @@ export function StackPanel({ data, name }: StackPanelProps) {
         return;
       }
 
-      const { canPerformOperation, updatedPositions, sortedNodes, stackAlignment } =
-        getStackLayout(
-          orderedNodes,
-          updatedDirection,
-          data.id,
-          updatedSpacing,
-          true,
-          target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
-        );
+      const {
+        canPerformOperation,
+        updatedPositions,
+        sortedNodes,
+        stackAlignment,
+      } = getStackLayout(
+        orderedNodes,
+        updatedDirection,
+        data.id,
+        updatedSpacing,
+        true,
+        target === StackChangeTarget.direction ? undefined : updatedAlignment // keep alignment only if direction hasn't changed
+      );
 
       if (!canPerformOperation) {
         console.log("[stack] can't change stack");

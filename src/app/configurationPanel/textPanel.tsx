@@ -2,13 +2,15 @@ import { useCallback, useContext, useState } from "react";
 import "./panel.css";
 import { EditorContext, TreeNodesContext } from "../editor";
 import { isNumeric } from "../utils";
-import { Node } from "./node";
+import { Node, TreeNode } from "./node";
 import { relayout } from "../layoutUtils";
 import _ from "lodash";
 import { NumericInput } from "./inputModes";
+import { changeNodeName } from "./panelUtils";
 
 export type TextPanelData = {
   content?: string;
+  customName: boolean;
 };
 
 export type TextPanelProps = {
@@ -30,24 +32,16 @@ export function TextPanel({ data, name }: TextPanelProps) {
   const changeName = (evt: any) => {
     setNodeName(evt.target.value);
     setTreeNodes(
-      treeNodes.map((treeNode: any) => {
-        if (treeNode.recordId !== data.id) {
-          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
+      changeNodeName(treeNodes, data.id, evt.target.value)
+        .map((treeNode: TreeNode<any>) => {
+          if (treeNode.recordId === data.id) {
             return {
               ...treeNode,
-              children: treeNode.children.map((child) =>
-                child.recordId === data.id
-                  ? { ...child, name: evt.target.value }
-                  : child
-              ),
+              data: { ...treeNode.data, customName: true },
             };
+          }
           return treeNode;
-        }
-        return {
-          ...treeNode,
-          name: evt.target.value,
-        };
-      })
+        })
     );
   };
 

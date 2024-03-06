@@ -10,7 +10,6 @@ export const overrides: TLUiOverrides = {
   actions: (editor, actions, _helpers) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const trackEvent = useEvents();
-
     function hasSelectedShapes() {
       return editor.selectedIds.length > 0;
     }

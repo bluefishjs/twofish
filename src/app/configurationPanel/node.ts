@@ -51,3 +51,19 @@ export type Node<T> = {
   instanceSelected?: boolean; // just a placeholder to prototype semi-highlighting nodes that have the same ids are certain selected nodes
   data: T;
 };
+
+export type ChildTreeNode = {
+  id: string;
+  recordId: string;
+  name: string;
+  type: Component;
+};
+
+export type TreeNode<T> = {
+  id: string;
+  recordId: string;
+  name: string;
+  type: Component;
+  children: ChildTreeNode[];
+  data: Node<T>;
+};

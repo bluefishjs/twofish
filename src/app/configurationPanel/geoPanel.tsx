@@ -5,6 +5,7 @@ import { Node } from "./node";
 import _ from "lodash";
 import { relayout } from "../layoutUtils";
 import { NumericInput } from "./inputModes";
+import { changeNodeName } from "./panelUtils";
 
 export type GeoPanelData = {
   shapeName: string;
@@ -26,24 +27,7 @@ export function GeoPanel({ data, name }: GeoPanelProps) {
   const changeName = (evt: any) => {
     setNodeName(evt.target.value);
     setTreeNodes(
-      treeNodes.map((treeNode: any) => {
-        if (treeNode.recordId !== data.id) {
-          if (treeNode.children && treeNode.data.childrenIds.includes(data.id))
-            return {
-              ...treeNode,
-              children: treeNode.children.map((child) =>
-                child.recordId === data.id
-                  ? { ...child, name: evt.target.value }
-                  : child
-              ),
-            };
-          return treeNode;
-        }
-        return {
-          ...treeNode,
-          name: evt.target.value,
-        };
-      })
+      changeNodeName(treeNodes, data.id, evt.target.value)
     );
   };
 

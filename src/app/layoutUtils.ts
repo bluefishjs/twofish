@@ -701,6 +701,5 @@ export const relayout = (nodes: any[], indexChanged: number) => {
       updatedNodes.push({ ...curNode });
     }
   }
-  console.log(positionsToUpdate);
   return { updatedNodes: updatedNodes, positionsToUpdate: positionsToUpdate };
 };

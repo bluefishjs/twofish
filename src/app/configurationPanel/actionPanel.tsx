@@ -12,6 +12,7 @@ export function ActionPanel(props: ActionPanelProps) {
       <div>More than 1 object selected</div>
       <div className="actions">
         <button>Align Shapes</button>
+        <button>Distribute Shapes</button>
         <button>Stack Shapes</button>
       </div>
     </div>
