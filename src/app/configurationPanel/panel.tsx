@@ -1,9 +1,4 @@
-import {
-  EditorContext,
-  NodesContext,
-  SelectionContext,
-  TreeNodesContext,
-} from "../editor";
+import { SelectionContext, TreeNodesContext } from "../editor";
 import { useContext } from "react";
 import { GeoPanel } from "./geoPanel";
 import { StackPanel } from "./stackPanel";
@@ -16,6 +11,7 @@ import { ArrowPanel } from "./arrowPanel";
 import { LinePanel } from "./linePanel";
 import { ActionPanel } from "./actionPanel";
 import { DistributePanel } from "./distributePanel";
+import { GroupPanel } from "./groupPanel";
 
 export function Panel() {
   const { selectedTreeNodes } = useContext(SelectionContext);
@@ -53,6 +49,9 @@ export function Panel() {
           break;
         case Component.Background:
           configInfo = <BackgroundPanel {...selectedRecord} />;
+          break;
+        case Component.Group:
+          configInfo = <GroupPanel {...selectedRecord} />;
           break;
         case Component.Arrow:
           configInfo = <ArrowPanel {...selectedRecord} />;

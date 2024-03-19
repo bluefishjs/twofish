@@ -13,6 +13,7 @@ import {
   Tldraw,
   createShapeId,
   uniqueId,
+  useEditor,
 } from "@tldraw/tldraw";
 import {} from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
@@ -21,9 +22,15 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { Component, Node, TreeNode, ComponentList } from "./configurationPanel/node";
+import {
+  Component,
+  Node,
+  TreeNode,
+  ComponentList,
+} from "./configurationPanel/node";
 import { overrides } from "./overrides";
 import { getBBox, roundToNearestHundredth } from "./utils";
 import { TreeView } from "./treeView/tree";
@@ -40,12 +47,47 @@ export const EditorContext = createContext<any>(undefined);
 export const TreeNodesContext = createContext<any>(undefined);
 export const SelectionContext = createContext<any>(undefined);
 
+function SaveButton() {
+  const editor = useEditor();
+  return (
+    <button
+      onClick={() => {
+        const snapshot = editor.store.getSnapshot();
+        const stringified = JSON.stringify(snapshot);
+        localStorage.setItem("my-editor-snapshot", stringified);
+      }}
+    >
+      Save Editor State
+    </button>
+  );
+}
+
+function LoadButton() {
+  const editor = useEditor();
+  return (
+    <button
+      onClick={() => {
+        const stringified = localStorage.getItem("my-editor-snapshot");
+        if (stringified === null) {
+          alert("No saved editor state found!");
+          return;
+        }
+        const snapshot = JSON.parse(stringified);
+        editor.store.loadSnapshot(snapshot);
+      }}
+    >
+      Load Saved Editor State
+    </button>
+  );
+}
+
 export default function Editor() {
   const [editor, setEditor] = useState<EditorType>();
   const [selectedTreeNodes, setSelectedTreeNodes] = useState(Array<any>());
   const [selectedTreeRelations, setSelectedTreeRelations] = useState(
     Array<{ recordId: any; childrenIds: any[] }>()
   );
+  const editorRef = useRef(undefined);
 
   const [treeNodes, setTreeNodes] = useState(Array<TreeNode<any>>());
 
@@ -81,6 +123,31 @@ export default function Editor() {
     setEditor((editor) =>
       editor?.deleteShapes(Array.from(editor?.currentPageShapeIds))
     );
+  };
+
+  const saveState = () => {
+    setEditor((editor) => {
+      if (!editor) {
+        return editor;
+      }
+      const snapshot = editor.store.getSnapshot();
+      const stringified = JSON.stringify(snapshot);
+      localStorage.setItem("my-editor-snapshot", stringified);
+      return editor;
+    });
+  };
+
+  const loadState = () => {
+    const stringified = localStorage.getItem("my-editor-snapshot");
+    if (stringified === null) {
+      alert("No saved editor state found!");
+      return;
+    }
+    const snapshot = JSON.parse(stringified);
+    setEditor((editor) => {
+      editor?.store.loadSnapshot(snapshot);
+      return editor;
+    });
   };
 
   const editorContextValue = useMemo(
@@ -459,54 +526,74 @@ export default function Editor() {
         )
         .map((node) => node.recordId);
 
+      // if(editorRef.current) {
+      //   editorRef.current.dispatchEvent(
+      //     new KeyboardEvent("keypress", { key: "Shift" })
+      //   );
+      // }
+      // just do 1 snap point
+      editor.setSnapMode(true);
       // setDragging(true);
       dragging = true;
       document.addEventListener("mousemove", handleMouseMove);
     };
 
     const handleMouseMove = (evt: any) => {
-      // if (editingNodes.length === 1 && editingRelations.length > 0) {
-      //   let selectedNodeId = selectedTreeNodes[0];
-      //   let currentNodeIndex = _.findIndex(
-      //     treeNodes,
-      //     (node) => node.recordId === selectedNodeId
-      //   );
-      //   let currentNode = treeNodes[currentNodeIndex];
-      //   let updatedBBox = editingNodes[0];
-      //   let revertXPosition = false;
-      //   let revertYPosition = false;
-      //   if (
-      //     currentNode.data.owned.x &&
-      //     Math.abs(updatedBBox.x - currentNode.data.owned.x) < 15
-      //   ) {
-      //     // threshold value of 50 for now
-      //     revertXPosition = true;
-      //   }
-      //   if (
-      //     currentNode.data.owned.y &&
-      //     Math.abs(updatedBBox.y - currentNode.data.owned.y) < 15
-      //   ) {
-      //     // threshold value of 100 for now
-      //     revertYPosition = true;
-      //   }
-      //   if (revertXPosition || revertYPosition) {
-      //     setEditor(
-      //       editor
-      //         .updateShapes([
-      //           {
-      //             id: selectedNodeId,
-      //             type: "geo",
-      //             x: currentNode.data.bbox.x ?? currentNode.data.owned.x,
-      //             y: currentNode.data.bbox.y ?? currentNode.data.owned.y,
-      //           },
-      //         ])
-      //         .complete()
-      //     );
-      //   }
-      // }
+      // model shift / command in doing dragging handling -- so that it snaps to guidepoints
+
+      // something breaks here if we change the width/height of stuff when we don't want that to happen
+
+      if (editingNodes.length === 1 && editingRelations.length > 0) {
+        console.log("moving mouse");
+        // let selectedNodeId = selectedTreeNodes[0];
+        // let currentNodeIndex = _.findIndex(
+        //   treeNodes,
+        //   (node) => node.recordId === selectedNodeId
+        // );
+        // let currentNode = treeNodes[currentNodeIndex];
+        // let updatedBBox = editingNodes[0];
+        // let revertXPosition = false;
+        // let revertYPosition = false;
+        // if (
+        //   updatedBBox.width !== currentNode.data.bbox.width ||
+        //   updatedBBox.height !== currentNode.data.bbox.height
+        // ) {
+        //   return;
+        // }
+        // if (
+        //   currentNode.data.owned.x &&
+        //   Math.abs(updatedBBox.x - currentNode.data.owned.x) < 30
+        // ) {
+        //   // threshold value of 50 for now
+        //   revertXPosition = true;
+        // }
+        // if (
+        //   currentNode.data.owned.y &&
+        //   Math.abs(updatedBBox.y - currentNode.data.owned.y) < 30
+        // ) {
+        //   // threshold value of 100 for now
+        //   revertYPosition = true;
+        // }
+        // if (revertXPosition || revertYPosition) {
+        //   setEditor(
+        //     editor
+        //       .updateShapes([
+        //         {
+        //           id: selectedNodeId,
+        //           type: "geo",
+        //           x: currentNode.data.bbox.x ?? currentNode.data.owned.x,
+        //           y: currentNode.data.bbox.y ?? currentNode.data.owned.y,
+        //         },
+        //       ])
+        //       .complete()
+        //   );
+        // }
+      }
     };
     const handleMouseUp = () => {
       document.removeEventListener("mousemove", handleMouseMove);
+
+      editor.setSnapMode(false);
       // TODOS TO FINISH BREAKING RELATION IMPLEMENTATION:
       //    - ONLY REMOVE OBJECTS FROM THE ACTUAL RELATIONS THAT SHOULD BE BROKEN (I.E. IF X IS BROKEN AND Y OWNER IS THE SAME, SHOULD LEAVE THAT RELATION OVERALL)
       //    - REMOVE RELATIONS THAT ARE NO LONGER RELEVANT (I.E. AN ALIGN/STACK THAT ONLY HAS 1 OBJECT)
@@ -530,18 +617,17 @@ export default function Editor() {
       const currentNode = treeNodes[currentNodeIndex];
       let revertXPosition = false;
       let revertYPosition = false;
-      // const nodesToDelete =
 
       if (
         currentNode.data.owned.x &&
-        Math.abs(updatedBBox.x - currentNode.data.owned.x) < 30
+        Math.abs(updatedBBox.x - currentNode.data.owned.x) < 50
       ) {
         // threshold value of 50 for now
         revertXPosition = true;
       }
       if (
         currentNode.data.owned.y &&
-        Math.abs(updatedBBox.y - currentNode.data.owned.y) < 30
+        Math.abs(updatedBBox.y - currentNode.data.owned.y) < 50
       ) {
         // threshold value of 100 for now
         revertYPosition = true;
@@ -630,6 +716,7 @@ export default function Editor() {
         // setTreeNodes(updatedNodes);
         setEditor(editor.updateShapes(positionsToUpdate).complete());
       }
+
       // setEditingNodes([]);
       editingNodes = [];
       editingRelations = [];
@@ -724,7 +811,7 @@ export default function Editor() {
                     childrenIds: childrenIds,
                     bbox: groupBBox,
                     owned: {},
-                    data: {}
+                    data: {},
                   },
                 });
               });
@@ -795,7 +882,7 @@ export default function Editor() {
                   children: [],
                   name: Component.Other,
                   type: Component.Other,
-                  data: data
+                  data: data,
                 })
               );
             }
@@ -993,7 +1080,6 @@ export default function Editor() {
             // keep track of selected id's
             if (!_.isEqual(from.selectedIds, to.selectedIds)) {
               // TODO: Come up with a better solution to this. This works okay for now but is not great
-
               const fromSelection = new Set(from.selectedIds);
               const toSelection = new Set(to.selectedIds);
 
@@ -1092,13 +1178,27 @@ export default function Editor() {
         <SelectionContext.Provider value={selectedTreeContextValue}>
           <div style={{ display: "flex" }}>
             <div className="treeview-container">
-              <button className="clear-button" onClick={clearAll}>
-                Clear All Objects
-              </button>
+              <div className="buttons-row">
+                <button className="outlined-button" onClick={clearAll}>
+                  Clear All Objects
+                </button>
+                <button className="outlined-button" onClick={saveState}>
+                  Save Editor State
+                </button>
+                <button className="outlined-button" onClick={loadState}>
+                  Load Editor State
+                </button>
+              </div>
+
               <TreeView data={treeNodes} />
             </div>
-            <div className="tldraw-container" onKeyDown={handleKeyDown}>
+            <div
+              className="tldraw-container"
+              autoFocus
+              onKeyDown={handleKeyDown}
+            >
               <Tldraw
+                ref={editorRef}
                 autoFocus
                 onUiEvent={handleUiEvent}
                 onMount={setAppToState}

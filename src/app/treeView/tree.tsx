@@ -13,6 +13,7 @@ type TreeViewProps = {
 const componentIcons = {
   [Component.Rect]: <i className="fa fa-regular fa-square"></i>,
   [Component.Stack]: <i className="fa fa-solid fa-bars"></i>,
+  [Component.Distribute]: <i className="fa fa-solid fa-bars"></i>,
   [Component.Line]: <i className="fa fa-solid fa-grip-lines"></i>,
   [Component.Align]: <i className="fa-solid fa-align-left"></i>,
   [Component.Arrow]: <i className="fa fa-solid fa-rotate-left"></i>,
@@ -32,8 +33,6 @@ export function TreeView({ data }: TreeViewProps) {
   const {
     selectedTreeNodes,
     selectedTreeRelations,
-    setSelectedTreeNodes,
-    setSelectedTreeRelations,
   } = useContext(SelectionContext);
   const treeRef = useRef<TreeApi<any> | undefined>();
 

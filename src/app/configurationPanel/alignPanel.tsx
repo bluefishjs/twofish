@@ -139,6 +139,7 @@ export function AlignPanel({ data, name }: AlignPanelProps) {
         updatedAlignNodes,
         (node: any) => node.id === data.id
       );
+      console.log(updatedPositions);
       const { updatedNodes, positionsToUpdate } = relayout(
         updatedAlignNodes,
         index

@@ -41,3 +41,12 @@ input {
     gap: 1em;
     padding-top: 1em;
 }
+
+.category-dropdown {
+    font-size: 20px;
+}
+.options {
+    display:flex;
+    flex-direction:column;
+    gap: 1em;
+}

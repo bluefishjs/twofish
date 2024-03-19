@@ -116,13 +116,14 @@ export function StackPanel({ data, name }: StackPanelProps) {
         updatedStackNodes,
         index
       );
+
+      setTreeNodes(updatedNodes);
       setEditor(
         editor
           ?.updateShapes(updatedPositions)
           .updateShapes(positionsToUpdate)
           .complete()
       );
-      setTreeNodes(updatedNodes);
       if (target === StackChangeTarget.direction) {
         // set default spacing
         setDirection(updatedDirection);

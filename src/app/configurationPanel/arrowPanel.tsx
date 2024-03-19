@@ -1,6 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import "./panel.css";
 import { Node } from "./node";
+import { TreeNodesContext } from "../editor";
+import { changeNodeName } from "./panelUtils";
+import { NumericInput } from "./inputModes";
 
 // either attached to a reference or a coordinate
 type Point = {
@@ -21,73 +24,42 @@ export type ArrowPanelProps = {
 
 // const handleStyle = { left: 10 };
 
-export function ArrowPanel({ data }: ArrowPanelProps) {
-  console.log(data);
+export function ArrowPanel({ data, name }: ArrowPanelProps) {
+  const { treeNodes, setTreeNodes } = useContext(TreeNodesContext);
+
   const onChange = useCallback((evt: any) => {
     console.log(evt);
   }, []);
+
+  const changeName = (evt: any) => {
+    setTreeNodes(changeNodeName(treeNodes, data.id, evt.target.value));
+  };
 
   return (
     <div className="panel">
       <h2 className="header">Arrow</h2>
       <div className="properties">
         <div>
-          <label htmlFor="x">x: </label>
-          {data.bbox.x !== undefined ? (
-            <input
-              id="x"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.bbox.x)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
+          <label htmlFor="name">name: </label>
+          <input id="name" onChange={changeName} value={name ?? ""} size={5} />
         </div>
         <div>
-          <label htmlFor="y">y: </label>
-          {data.bbox.y !== undefined ? (
-            <input
-              id="y"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.bbox.y)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
+          <NumericInput label={"x"} value={data.bbox.x} onChange={onChange} />
         </div>
         <div>
-          <label htmlFor="start_x">start_x: </label>
-          {data.data.start.x !== undefined ? (
-            <input
-              id="start_x"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.data.start.x)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-          <label htmlFor="start_y">start_y: </label>
-          {data.data.start.y !== undefined ? (
-            <input
-              id="start_y"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.data.start.y)} // TODO: This should be changed into the ref's x * normalized value if ref exists
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
+          <NumericInput label={"y"} value={data.bbox.y} onChange={onChange} />
+        </div>
+        <div>
+          <NumericInput
+            label={"start_x"}
+            value={data.data.start.x}
+            onChange={onChange}
+          />
+          <NumericInput
+            label={"start_y"}
+            value={data.data.start.y}
+            onChange={onChange}
+          />
         </div>
         <div>
           <label htmlFor="start_ref">start_ref: </label>
@@ -98,32 +70,16 @@ export function ArrowPanel({ data }: ArrowPanelProps) {
           )}
         </div>
         <div>
-          <label htmlFor="end_x">end_x: </label>
-          {data.data.end.x !== undefined ? (
-            <input
-              id="end_x"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.data.end.x)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
-          <label htmlFor="end_y">end_y: </label>
-          {data.data.end.y !== undefined ? (
-            <input
-              id="end_y"
-              name="text"
-              onChange={onChange}
-              className="nodrag"
-              value={Math.round(data.data.end.y)}
-              size={5}
-            />
-          ) : (
-            <em>computed</em>
-          )}
+        <NumericInput
+            label={"end_x"}
+            value={data.data.end.x}
+            onChange={onChange}
+          />
+          <NumericInput
+            label={"end_y"}
+            value={data.data.end.y}
+            onChange={onChange}
+          />
         </div>
         <div>
           <label htmlFor="end_ref">end_ref: </label>

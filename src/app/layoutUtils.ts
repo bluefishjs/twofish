@@ -2,7 +2,7 @@ import { TLShapeId } from "@tldraw/tldraw";
 import _ from "lodash";
 import { Component } from "./configurationPanel/node";
 import { getBBox } from "./utils";
-import { Alignment } from "./nodes/alignNode";
+import { Alignment } from "./configurationPanel/alignPanel";
 
 export const horizontalAlignments = ["left", "center-horizontal", "right"];
 // returns axis to align on (either x value or y value) if able to be aligned
@@ -362,7 +362,6 @@ export const getDistributeLayout = (
         (firstNode.bbox.x ?? firstNode.owned.x)) /
         (sortedNodes.length - 1);
 
-    // TODO: finish debugging spacing -- it's not entirely working
     let startingX = sortedNodes[0].data.bbox.x ?? sortedNodes[0].data.owned.x;
     if (axisPlacedNodes.length === 1) {
       const fixedIndex = axisPlacedNodes[0].index;
@@ -374,12 +373,20 @@ export const getDistributeLayout = (
           (item) => item.data.bbox.width
         );
     } else if (axisPlacedNodes.length > 1) {
-      const widthBetween = _.sumBy(
-        sortedNodes.slice(
-          axisPlacedNodes[0].index + 1,
-          axisPlacedNodes[1].index
-        ),
-        (item) => item.data.bbox.width
+      const calcWidthBetweenIndices = (
+        sortedNodes: any[],
+        prevIndex: number,
+        nextIndex: number
+      ) => {
+        return _.sumBy(
+          sortedNodes.slice(prevIndex + 1, nextIndex),
+          (item) => item.data.bbox.width
+        );
+      };
+      const widthBetween = calcWidthBetweenIndices(
+        sortedNodes,
+        axisPlacedNodes[0].index,
+        axisPlacedNodes[1].index
       );
       calculatedSpacing =
         (axisPlacedNodes[1].owned.x -
@@ -394,7 +401,27 @@ export const getDistributeLayout = (
           sortedNodes.slice(0, axisPlacedNodes[0].index),
           (item) => item.data.bbox.width
         );
-      // TODO: Check for rest of the nodes being satisfied as well + update starting X
+
+      for (let ind = 2; ind < axisPlacedNodes.length; ind++) {
+        const { index, owned } = axisPlacedNodes[ind];
+        const {
+          index: prevIndex,
+          owned: prevOwned,
+          bbox: prevBBox,
+        } = axisPlacedNodes[ind - 1];
+        const curWidthBetween = calcWidthBetweenIndices(
+          sortedNodes,
+          axisPlacedNodes[0].index,
+          axisPlacedNodes[1].index
+        );
+        const curCalculatedSpacing =
+          (owned.x - (prevOwned.x + prevBBox.width) - curWidthBetween) /
+          (index - prevIndex);
+
+        if (curCalculatedSpacing !== calculatedSpacing) {
+          return { canPerformOperation: false, sortedNodes: modifiedData };
+        }
+      }
     }
     let x = startingX;
     for (const { data } of sortedNodes) {
@@ -436,9 +463,20 @@ export const getDistributeLayout = (
           (item) => item.data.bbox.height
         );
     } else if (axisPlacedNodes.length > 1) {
-      const heightBetween = _.sumBy(
-        sortedNodes.slice(axisPlacedNodes[0].index, axisPlacedNodes[1].index),
-        (item) => item.data.bbox.height
+      const calcHeightBetweenIndices = (
+        sortedNodes: any[],
+        prevIndex: number,
+        nextIndex: number
+      ) => {
+        return _.sumBy(
+          sortedNodes.slice(prevIndex, nextIndex),
+          (item) => item.data.bbox.height
+        );
+      };
+      const heightBetween = calcHeightBetweenIndices(
+        sortedNodes,
+        axisPlacedNodes[0].index,
+        axisPlacedNodes[1].index
       );
       spacing =
         (axisPlacedNodes[1].owned.y -
@@ -446,6 +484,26 @@ export const getDistributeLayout = (
           heightBetween) /
         (axisPlacedNodes[1].index - axisPlacedNodes[0].index);
       // TODO: Check for rest of the nodes being satisfied as well + calculate new starting Y & update shapes
+      for (let ind = 2; ind < axisPlacedNodes.length; ind++) {
+        const { index, owned } = axisPlacedNodes[ind];
+        const {
+          index: prevIndex,
+          owned: prevOwned,
+          bbox: prevBBox,
+        } = axisPlacedNodes[ind - 1];
+        const curHeightBetween = calcHeightBetweenIndices(
+          sortedNodes,
+          axisPlacedNodes[0].index,
+          axisPlacedNodes[1].index
+        );
+        const curCalculatedSpacing =
+          (owned.x - (prevOwned.x + prevBBox.width) - curHeightBetween) /
+          (index - prevIndex);
+
+        if (curCalculatedSpacing !== calculatedSpacing) {
+          return { canPerformOperation: false, sortedNodes: modifiedData };
+        }
+      }
     }
     let y = startingY;
     for (const { data } of sortedNodes) {
@@ -510,7 +568,11 @@ export const getStackLayout = (
   // TODO: make this loop through all other alignment values
 
   if (!["horizontal", "vertical"].includes(operation)) {
-    return { canPerformOperation: false, sortedNodes: modifiedData };
+    return {
+      canPerformOperation: false,
+      sortedNodes: modifiedData,
+      updatedPositions: [],
+    };
   }
 
   let alignmentsToTry: Alignment[] = alignment
@@ -573,16 +635,15 @@ export const relayout = (nodes: any[], indexChanged: number) => {
         .map((childNode: any) => childNode.data);
       const alignment = curNode.data.data.alignment;
 
-      const {
-        canPerformOperation: alignable,
-        updatedPositions,
-        updatedNodeData,
-        alignX,
-        alignY,
-      } = getAlignLayout(childrenData, alignment, curNode.recordId);
+      const { canPerformOperation: alignable, updatedNodeData } =
+        getAlignLayout(childrenData, alignment, curNode.recordId);
 
       if (!alignable || !updatedNodeData) {
-        // should just remove this from the relations
+        // This is a problem
+        alert("Couldn't cascade edit -- contradictory positions determined");
+        console.log(
+          "Couldn't cascade edit -- contradictory positions determined"
+        );
         continue;
       }
 
@@ -610,7 +671,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
         .map((id: any) => _.find(updatedNodes, (n) => n.recordId === id))
         .map((childNode: any) => childNode.data);
 
-      const { canPerformOperation, updatedPositions, sortedNodes, spacing } =
+      const { canPerformOperation, updatedPositions, sortedNodes } =
         getDistributeLayout(
           orderedData,
           curNode.data.data.direction,
@@ -621,7 +682,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
 
       if (!canPerformOperation) {
         console.log("[Distribute] can't update Distribute component");
-        // What should we do in this case?
+        // This is also a problem
         continue;
       }
       updatedNodes = updatedNodes.map((updatedNode: any) => {
@@ -646,20 +707,15 @@ export const relayout = (nodes: any[], indexChanged: number) => {
         .map((id: any) => _.find(updatedNodes, (n) => n.recordId === id))
         .map((childNode: any) => childNode.data);
 
-      const {
-        canPerformOperation,
-        updatedPositions,
-        sortedNodes,
-        spacing,
-        stackAlignment,
-      } = getStackLayout(
-        orderedData,
-        curNode.data.data.direction,
-        curNode.recordId,
-        curNode.data.data.spacing,
-        true,
-        curNode.data.data.alignment
-      );
+      const { canPerformOperation, updatedPositions, sortedNodes } =
+        getStackLayout(
+          orderedData,
+          curNode.data.data.direction,
+          curNode.recordId,
+          curNode.data.data.spacing,
+          true,
+          curNode.data.data.alignment
+        );
 
       if (!canPerformOperation) {
         console.log("[Stack] can't update stack");
@@ -696,6 +752,24 @@ export const relayout = (nodes: any[], indexChanged: number) => {
       updatedNodes.push({
         ...curNode,
         data: { ...curNode.data, bbox: backgroundBBox },
+      });
+    } else if (curNode.type === Component.Group) {
+      let selectedNodes = updatedNodes.filter((node: any) =>
+        curNode.data.childrenIds.includes(node.recordId)
+      ); // selected nodes
+      const childBBoxes = selectedNodes.map((node: any) => ({
+        x: node.data.bbox.x ?? node.data.owned.x,
+        y: node.data.bbox.y ?? node.data.owned.y,
+        width: node.data.bbox.width ?? node.data.owned.width,
+        height: node.data.bbox.height ?? node.data.owned.height,
+      }));
+      const groupBBox = getBBox(childBBoxes);
+      updatedNodes.push({
+        ...curNode,
+        data: {
+          ...curNode.data,
+          bbox: groupBBox,
+        },
       });
     } else {
       updatedNodes.push({ ...curNode });

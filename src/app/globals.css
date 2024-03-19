@@ -47,15 +47,22 @@ body {
   padding: 8px;
 }
 
-.treeview-container .clear-button {
+.treeview-container .outlined-button {
   border: 2px solid #333;
   padding: 5px;
   border-radius: 10px;
+  font-size:12px;
+  font-weight:500px;
   /* transition: all 0.25s ease-in; */
 }
 
-.treeview-container .clear-button:hover {
+.treeview-container .outlined-button:hover {
   background-color: var(--primary-blue);
+}
+
+.buttons-row {
+  display:flex;
+  flex-direction:row;
 }
 
 .tldraw-container {

@@ -10,6 +10,7 @@ export const overrides: TLUiOverrides = {
   actions: (editor, actions, _helpers) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const trackEvent = useEvents();
+
     function hasSelectedShapes() {
       return editor.selectedIds.length > 0;
     }
@@ -108,7 +109,6 @@ export const overrides: TLUiOverrides = {
         onSelect(source) {
           if (!hasSelectedShapes()) return;
           // if (mustGoBackToSelectToolFirst()) return
-
           trackEvent("stack-shapes", {
             operation: "horizontal",
             source,
@@ -196,4 +196,9 @@ export const overrides: TLUiOverrides = {
     }
     return contextMenu;
   },
+  translations: {
+    en: {
+          'add-background': 'Add Background',
+    }
+  }
 };
