@@ -32,7 +32,11 @@ import {
   ComponentList,
 } from "./configurationPanel/node";
 import { overrides } from "./overrides";
-import { getBBox, roundToNearestHundredth } from "./utils";
+import {
+  getChildrenBBox,
+  getSelfOrOwnedBBox,
+  roundToNearestHundredth,
+} from "./utils";
 import { TreeView } from "./treeView/tree";
 import { Panel } from "./configurationPanel/panel";
 import {
@@ -87,7 +91,6 @@ export default function Editor() {
   const [selectedTreeRelations, setSelectedTreeRelations] = useState(
     Array<{ recordId: any; childrenIds: any[] }>()
   );
-  const editorRef = useRef(undefined);
 
   const [treeNodes, setTreeNodes] = useState(Array<TreeNode<any>>());
 
@@ -313,7 +316,7 @@ export default function Editor() {
           });
 
           setEditor((editor) => editor?.updateShapes(updatedPositions));
-          const childrenBBoxes = getBBox(
+          const childrenBBoxes = getChildrenBBox(
             sortedNodes.map(({ data }) => ({
               x: data.owned.x,
               y: data.owned.y,
@@ -398,7 +401,7 @@ export default function Editor() {
           });
 
           setEditor((editor) => editor?.updateShapes(updatedPositions));
-          const childrenBBoxes = getBBox(
+          const childrenBBoxes = getChildrenBBox(
             sortedNodes.map(({ data }) => ({
               x: data.owned.x,
               y: data.owned.y,
@@ -526,12 +529,6 @@ export default function Editor() {
         )
         .map((node) => node.recordId);
 
-      // if(editorRef.current) {
-      //   editorRef.current.dispatchEvent(
-      //     new KeyboardEvent("keypress", { key: "Shift" })
-      //   );
-      // }
-      // just do 1 snap point
       editor.setSnapMode(true);
       // setDragging(true);
       dragging = true;
@@ -793,7 +790,7 @@ export default function Editor() {
                   width: node.data.bbox.width ?? node.data.owned.width,
                   height: node.data.bbox.height ?? node.data.owned.height,
                 }));
-                const groupBBox = getBBox(childBBoxes);
+                const groupBBox = getChildrenBBox(childBBoxes);
 
                 return treeNodes.concat({
                   id: record.id,
@@ -825,6 +822,10 @@ export default function Editor() {
                   children: [],
                   data: {
                     ...data,
+                    bbox: {
+                      width: 0,
+                      height: 0,
+                    },
                     data: {
                       start: record.props.start,
                       end: record.props.end,
@@ -955,42 +956,86 @@ export default function Editor() {
                     const data = { ...node.data };
                     if (to.x !== from.x) data.bbox.x = to.x;
                     if (to.y !== from.y) data.bbox.y = to.y;
-                    if ("start" in to.props) {
-                      if ("boundShapeId" in to.props.start) {
-                        const refId = to.props.start.boundShapeId;
-                        data.data.start = {
-                          ref: refId,
-                          ...to.props.start.normalizedAnchor,
-                        };
-                      } else data.data.start = to.props.start;
-                    }
-                    if ("end" in to.props) {
-                      if ("boundShapeId" in to.props.end) {
-                        const refId = to.props.end.boundShapeId;
-                        data.data.end = {
-                          ref: refId,
-                          ...to.props.end.normalizedAnchor,
-                        };
-                      } else data.data.end = to.props.end;
-                    }
 
                     const children = [];
-                    if ("boundShapeId" in to.props.start) {
-                      children.push(
-                        _.find(
-                          nodes,
-                          (node) => node.recordId === data.data.start.ref
-                        )
+                    let start, end;
+                    if (
+                      "start" in to.props &&
+                      "boundShapeId" in to.props.start
+                    ) {
+                      const refId = to.props.start.boundShapeId;
+                      const anchor = to.props.start.normalizedAnchor;
+                      data.data.start = {
+                        ref: refId,
+                        ...anchor,
+                      };
+                      const startNode = _.find(
+                        nodes,
+                        (node) => node.recordId === data.data.start.ref
                       );
+                      if (startNode) {
+                        children.push({
+                          id: uniqueId(),
+                          recordId: startNode?.recordId,
+                          name: startNode?.name,
+                          type: startNode.type,
+                        });
+                        const startBBox = getSelfOrOwnedBBox(startNode);
+                        start = {
+                          x:
+                            (startBBox.x ?? 0) +
+                            anchor.x * (startBBox.width ?? 0),
+                          y:
+                            (startBBox.y ?? 0) +
+                            anchor.y * (startBBox.height ?? 0),
+                        };
+                      }
+                    } else {
+                      data.data.start = to.props.start;
+                      start = {
+                        x: to.x + data.data.start.x,
+                        y: to.y + data.data.start.y
+                      };
                     }
-                    if ("boundShapeId" in to.props.end) {
-                      children.push(
-                        _.find(
-                          nodes,
-                          (node) => node.recordId === data.data.end.ref
-                        )
+                    if ("end" in to.props && "boundShapeId" in to.props.end) {
+                      const refId = to.props.end.boundShapeId;
+                      data.data.end = {
+                        ref: refId,
+                        ...to.props.end.normalizedAnchor,
+                      };
+                      const endNode = _.find(
+                        nodes,
+                        (node) => node.recordId === data.data.end.ref
                       );
+                      const anchor = to.props.end.normalizedAnchor;
+                      if (endNode) {
+                        children.push({
+                          id: uniqueId(),
+                          recordId: endNode?.recordId,
+                          name: endNode?.name,
+                          type: endNode.type,
+                        });
+                        const endBBox = getSelfOrOwnedBBox(endNode);
+                        end = {
+                          x:
+                            (endBBox.x ?? 0) + anchor.x * (endBBox.width ?? 0),
+                          y:
+                            (endBBox.y ?? 0) +
+                            anchor.y * (endBBox.height ?? 0),
+                        };
+                      }
+                    } else {
+                      data.data.end = to.props.end;
+                      end = {
+                        x: to.x + data.data.end.x,
+                        y: to.y + data.data.end.y
+                      };
                     }
+
+                    data.bbox.x = Math.min(start.x, end.x);
+                    data.bbox.y = to.y + Math.min(start.y, end.y);
+                    data.bbox.width = Math.abs(start.x - end.x);
+                    data.bbox.height = Math.abs(start.y - end.y);
 
                     data.childrenIds = children.map((child) => child.id);
                     return {
@@ -1178,7 +1223,7 @@ export default function Editor() {
         <SelectionContext.Provider value={selectedTreeContextValue}>
           <div style={{ display: "flex" }}>
             <div className="treeview-container">
-              <div className="buttons-row">
+              <div className="buttons-container">
                 <button className="outlined-button" onClick={clearAll}>
                   Clear All Objects
                 </button>
@@ -1198,7 +1243,6 @@ export default function Editor() {
               onKeyDown={handleKeyDown}
             >
               <Tldraw
-                ref={editorRef}
                 autoFocus
                 onUiEvent={handleUiEvent}
                 onMount={setAppToState}

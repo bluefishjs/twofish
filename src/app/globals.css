@@ -20,7 +20,7 @@
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: #eee;
+  background: hsl(0, 0%, 93%);
   /* background: linear-gradient(to bottom,
       transparent,
       rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb)); */
@@ -28,14 +28,6 @@ body {
 
 * {
   color: black;
-}
-
-.react-flow__node {
-  border-radius: 5px;
-}
-
-.react-flow__node.selected {
-  border: 3px solid blue;
 }
 
 .fa {
@@ -51,8 +43,8 @@ body {
   border: 2px solid #333;
   padding: 5px;
   border-radius: 10px;
-  font-size:12px;
-  font-weight:500px;
+  /* font-size:12px; */
+  font-weight:500;
   /* transition: all 0.25s ease-in; */
 }
 
@@ -60,9 +52,9 @@ body {
   background-color: var(--primary-blue);
 }
 
-.buttons-row {
+.buttons-container {
   display:flex;
-  flex-direction:row;
+  flex-direction:column;
 }
 
 .tldraw-container {
@@ -77,7 +69,7 @@ body {
   height: 100%;
   padding: 8px;
   font-family: monospace;
-  font-size: 12px;
+  /* font-size: 14px; */
   display: flex;
   flex-direction: column-reverse;
   overflow: auto;

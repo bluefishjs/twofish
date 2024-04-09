@@ -1,5 +1,7 @@
+import { TreeNode } from "./configurationPanel/node";
+
 // Utility functions for Twofish
-export function getBBox(
+export function getChildrenBBox(
   childNodeBBoxes: { x: number; y: number; width: number; height: number }[]
 ) {
   const x = Math.min(...childNodeBBoxes.map((b) => b.x));
@@ -18,6 +20,14 @@ export function getBBox(
   return childBBox;
 }
 
+export function getSelfOrOwnedBBox(node: TreeNode<any>) {
+  return {
+    x: node.data.bbox.x ?? node.data.owned.x,
+    y: node.data.bbox.y ?? node.data.owned.y,
+    width: node.data.bbox.width ?? node.data.owned.width,
+    height: node.data.bbox.height ?? node.data.owned.height,
+  };
+}
 // Check if string is numeric
 export function isNumeric(val: string): boolean {
   return (

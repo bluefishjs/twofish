@@ -1,7 +1,7 @@
 import { TLShapeId } from "@tldraw/tldraw";
 import _ from "lodash";
 import { Component } from "./configurationPanel/node";
-import { getBBox } from "./utils";
+import { getChildrenBBox } from "./utils";
 import { Alignment } from "./configurationPanel/alignPanel";
 
 export const horizontalAlignments = ["left", "center-horizontal", "right"];
@@ -160,6 +160,7 @@ export const getAlignLayout = (
       },
     }));
   }
+
   const res = getAlignAxes(modifiedData, operation, alignX, alignY);
   if (res === false) {
     return { canPerformOperation: false };
@@ -245,7 +246,7 @@ export const getBackgroundLayout = (
     width: data.bbox.width ?? data.owned.width ?? 0,
     height: data.bbox.height ?? data.owned.height ?? 0,
   }));
-  const newBBox = getBBox(childrenBBoxes);
+  const newBBox = getChildrenBBox(childrenBBoxes);
   const backgroundBBox = {
     x: newBBox.x - padding,
     y: newBBox.y - padding,
@@ -763,7 +764,7 @@ export const relayout = (nodes: any[], indexChanged: number) => {
         width: node.data.bbox.width ?? node.data.owned.width,
         height: node.data.bbox.height ?? node.data.owned.height,
       }));
-      const groupBBox = getBBox(childBBoxes);
+      const groupBBox = getChildrenBBox(childBBoxes);
       updatedNodes.push({
         ...curNode,
         data: {
